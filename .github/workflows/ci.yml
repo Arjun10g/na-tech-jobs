@@ -20,8 +20,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Sync dependencies (core + dev)
-        run: uv sync --group dev
+      - name: Sync dependencies (core + dev + ml + eda)
+        run: uv sync --group dev --extra ml --extra eda
 
       - name: Ruff format check
         run: uv run ruff format --check .
