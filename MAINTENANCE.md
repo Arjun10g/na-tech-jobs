@@ -111,6 +111,35 @@ Conventions:
 
 ## Resolved
 
+### 2026-05-08 — Phase 2 Step 3: salary regressor (six-tier ladder)
+
+- **Six tiers from constant baseline to XGBoost+Optuna**, all evaluated on the
+  frozen 80/20 train/test split (test n=1,226). Per CLAUDE.md §10 + LITERATURE_REVIEW.md §16.
+- **5-fold CV-MAE on the training set** runs alongside test-MAE for every tier — the
+  substitute for Cohen-style power analysis (LITERATURE_REVIEW.md §15.3 #15).
+- **Final leaderboard**:
+
+  | Tier | test-MAE | test 95% CI | CV-MAE | CV 95% CI | MAPE | R² log |
+  |---|---|---|---|---|---|---|
+  | 0 constant | $60,509 | $57k–$64k | $62,279 | $61k–$64k | 33.7% | 0.000 |
+  | 1 stratified | $59,589 | $56k–$63k | $61,623 | $60k–$63k | 32.9% | 0.045 |
+  | 2 Mincer OLS | $51,322 | $48k–$54k | $52,041 | $50k–$53k | 27.4% | 0.283 |
+  | 3 Ridge | $43,199 | $41k–$45k | $42,179 | $41k–$43k | 23.3% | 0.462 |
+  | 4 Random Forest | $35,935 | $34k–$38k | $37,016 | $36k–$38k | 19.0% | 0.615 |
+  | **5 XGBoost+Optuna** | **$29,091** | **$27k–$31k** | **$30,533** | **$29k–$32k** | **14.7%** | **0.730** |
+
+- **Test-MAE and CV-MAE agree within 5% across every tier**: no evidence of
+  overfitting or lucky-test-draw.
+- CLAUDE.md §10 target ($25k MAE) **not yet hit**: the closing gap is for
+  bge-m3 description embedding in Phase 5.
+- Winning model + 5 artifacts pushed to https://huggingface.co/arjun10g/na-tech-jobs-salary-v1
+  (commit `dae4f6c`).
+- New module tree: `models/salary/{dataset,encode,baselines,linear,forest,xgb,
+  eval,train,predict,model_card}.py` + `scripts/publish_salary_model.py`. 30
+  unit tests added across encoders / baselines / eval (now 183 passing).
+- Ruff per-file ignores added for `models/**` and `tests/models/**` to allow
+  the sklearn convention of `X` for feature matrices and `y` for targets.
+
 ### 2026-05-08 — Phase 2 Steps 2 + 2.5: curated layer + statistical audit + literature review
 
 - **Curated layer** (`curated/build.py`, `curated/duckdb_views.sql`):

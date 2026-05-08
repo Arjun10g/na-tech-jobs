@@ -34,8 +34,14 @@ to https://huggingface.co/datasets/arjun10g/na-tech-jobs. Latest snapshot:
   with batched MPS / CUDA generation. Disabled by default — re-enable by
   populating `LLM_ELIGIBLE_FIELDS` in `ingestion/feature_extraction/cascade.py`
   and running `uv run python -m scripts.backfill_features --use-llm`.
-- Step 2 (next): curated DuckDB layer + salary regressor (XGBoost + Optuna +
-  MLflow, model card to HF Hub).
+- Step 2 (done): curated DuckDB layer with `first_seen_at` / `last_seen_at`
+  history; statistical / EDA audit (`eda/audit.py` + 11 plots + `report.md`);
+  literature review (~1k lines, 50+ refs); deterministic train/test split.
+- Step 3 (done): six-tier salary regressor ladder (constant → XGBoost+Optuna).
+  **Test-MAE $29,091 / CV-MAE $30,533** for the XGBoost tier on log-target;
+  CLAUDE.md §10 target ($25k) needs Phase 5's bge-m3 embedding to close the
+  gap. Winning model on HF Hub:
+  https://huggingface.co/arjun10g/na-tech-jobs-salary-v1
 
 See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased plan.
 

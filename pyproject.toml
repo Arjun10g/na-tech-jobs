@@ -83,6 +83,12 @@ extend-exclude = ["notebooks", "data", ".venv"]
 select = ["E", "F", "I", "B", "UP", "SIM", "N", "W"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# sklearn convention: capital X for feature matrices, lowercase y for targets.
+# Suppressing N803 (arg name uppercase) and N806 (local name uppercase) in ML code.
+"models/**/*.py" = ["N803", "N806"]
+"tests/models/**/*.py" = ["N803", "N806"]
+
 [tool.ruff.format]
 quote-style = "double"
 
