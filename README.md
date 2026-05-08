@@ -22,8 +22,8 @@ app live at https://arjun10g-na-tech-jobs.hf.space.
 
 🚧 **Phase 1 — ingestion v1.** Greenhouse + Lever + Ashby extractors,
 async-fan-out orchestrator, Pandera-validated parquet snapshots pushed weekly
-to https://huggingface.co/datasets/arjun10g/na-tech-jobs. First snapshot:
-~6.7k jobs across ~20 active boards.
+to https://huggingface.co/datasets/arjun10g/na-tech-jobs. Latest snapshot:
+~12.3k jobs across 65 verified boards (US 95% / CA 5%).
 
 See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased plan.
 

@@ -1,78 +1,99 @@
-# Seed registry for Phase 1 ingestion.
+# Seed registry for the NA tech-hiring ingest pipeline.
 #
-# - 50+ North American tech companies, mix of US + Canadian, mix of providers.
-# - `slug`: stable identifier used in the dataset (sha256 of slug+url → job id).
-# - `provider`: one of greenhouse | lever | ashby (workable + smartrecruiters in Phase 4, workday in Phase 4+).
-# - `handle`: the company's public ATS handle (subdomain or board key).
-# - `default_country`: fallback for ambiguous "Remote" postings.
+# Verified live during Phase 1.5 expansion via `python -m scripts.probe_handles`.
+# Job counts in the trailing comments are from that probe — drift over time is
+# normal; the orchestrator's per-company stats record current reality.
 #
-# When an ATS handle 404s, the extractor logs and skips — pruning happens after
-# the first run reports per-company stats.
+# Schema:
+#   slug: stable internal identifier (used in `id = sha256(slug+url)[:16]`)
+#   name: display name
+#   provider: greenhouse | lever | ashby   (workable + smartrecruiters in Phase 4)
+#   handle: ATS-specific board key
+#   default_country: fallback when location string is ambiguous (US|CA)
+#
+# When an ATS handle 404s, the orchestrator logs and skips. Re-run the probe
+# script when you want to add or refresh entries.
 
 companies:
-  # ── Greenhouse — US ──────────────────────────────────────────────────────
-  - { slug: stripe, name: Stripe, provider: greenhouse, handle: stripe, default_country: US }
-  - { slug: airbnb, name: Airbnb, provider: greenhouse, handle: airbnb, default_country: US }
-  - { slug: doordash, name: DoorDash, provider: greenhouse, handle: doordash, default_country: US }
-  - { slug: instacart, name: Instacart, provider: greenhouse, handle: instacart, default_country: US }
-  - { slug: robinhood, name: Robinhood, provider: greenhouse, handle: robinhood, default_country: US }
-  - { slug: brex, name: Brex, provider: greenhouse, handle: brex, default_country: US }
-  - { slug: ramp, name: Ramp, provider: greenhouse, handle: ramp, default_country: US }
-  - { slug: datadog, name: Datadog, provider: greenhouse, handle: datadog, default_country: US }
-  - { slug: mongodb, name: MongoDB, provider: greenhouse, handle: mongodb, default_country: US }
-  - { slug: snowflake, name: Snowflake, provider: greenhouse, handle: snowflake, default_country: US }
-  - { slug: twilio, name: Twilio, provider: greenhouse, handle: twilio, default_country: US }
-  - { slug: anthropic, name: Anthropic, provider: greenhouse, handle: anthropic, default_country: US }
-  - { slug: openai, name: OpenAI, provider: greenhouse, handle: openai, default_country: US }
-  - { slug: plaid, name: Plaid, provider: greenhouse, handle: plaid, default_country: US }
-  - { slug: mixpanel, name: Mixpanel, provider: greenhouse, handle: mixpanel, default_country: US }
-  - { slug: gusto, name: Gusto, provider: greenhouse, handle: gusto, default_country: US }
-  - { slug: opendoor, name: Opendoor, provider: greenhouse, handle: opendoor, default_country: US }
-  - { slug: vercel, name: Vercel, provider: greenhouse, handle: vercel, default_country: US }
-  - { slug: cloudflare, name: Cloudflare, provider: greenhouse, handle: cloudflare, default_country: US }
-  - { slug: anduril, name: Anduril, provider: greenhouse, handle: andurilindustries, default_country: US }
-  - { slug: scale, name: Scale AI, provider: greenhouse, handle: scaleai, default_country: US }
-  - { slug: figma, name: Figma, provider: greenhouse, handle: figma, default_country: US }
-  - { slug: segment, name: Segment, provider: greenhouse, handle: segmentio, default_country: US }
-  - { slug: gitlab, name: GitLab, provider: greenhouse, handle: gitlab, default_country: US }
-  - { slug: hashicorp, name: HashiCorp, provider: greenhouse, handle: hashicorp, default_country: US }
-  - { slug: asana, name: Asana, provider: greenhouse, handle: asana, default_country: US }
-  - { slug: sentry, name: Sentry, provider: greenhouse, handle: sentry, default_country: US }
-  - { slug: airtable, name: Airtable, provider: greenhouse, handle: airtable, default_country: US }
-  - { slug: discord, name: Discord, provider: greenhouse, handle: discord, default_country: US }
-  - { slug: notion, name: Notion, provider: greenhouse, handle: notion, default_country: US }
-  - { slug: chime, name: Chime, provider: greenhouse, handle: chime, default_country: US }
-  - { slug: lyft, name: Lyft, provider: greenhouse, handle: lyft, default_country: US }
-  - { slug: pinterest, name: Pinterest, provider: greenhouse, handle: pinterest, default_country: US }
-  - { slug: cruise, name: Cruise, provider: greenhouse, handle: cruise, default_country: US }
-  - { slug: rivian, name: Rivian, provider: greenhouse, handle: rivian, default_country: US }
-  - { slug: coinbase, name: Coinbase, provider: greenhouse, handle: coinbase, default_country: US }
+  # ── Greenhouse — high-volume US ───────────────────────────────────────────
+  - { slug: anduril, name: Anduril, provider: greenhouse, handle: andurilindustries, default_country: US }  # 1888
+  - { slug: spacex, name: SpaceX, provider: greenhouse, handle: spacex, default_country: US }  # 1684
+  - { slug: databricks, name: Databricks, provider: greenhouse, handle: databricks, default_country: US }  # 818
+  - { slug: stripe, name: Stripe, provider: greenhouse, handle: stripe, default_country: US }  # 494
+  - { slug: mongodb, name: MongoDB, provider: greenhouse, handle: mongodb, default_country: US }  # 434
+  - { slug: anthropic, name: Anthropic, provider: greenhouse, handle: anthropic, default_country: US }  # 424
+  - { slug: datadog, name: Datadog, provider: greenhouse, handle: datadog, default_country: US }  # 412
+  - { slug: roblox, name: Roblox, provider: greenhouse, handle: roblox, default_country: US }  # 293
+  - { slug: oscar_health, name: Oscar Health, provider: greenhouse, handle: oscar, default_country: US }  # 240
+  - { slug: airbnb, name: Airbnb, provider: greenhouse, handle: airbnb, default_country: US }  # 241
+  - { slug: brex, name: Brex, provider: greenhouse, handle: brex, default_country: US }  # 224
+  - { slug: jane_street, name: Jane Street, provider: greenhouse, handle: janestreet, default_country: US }  # 215
+  - { slug: zipline, name: Zipline, provider: greenhouse, handle: flyzipline, default_country: US }  # 197
+  - { slug: gitlab, name: GitLab, provider: greenhouse, handle: gitlab, default_country: US }  # 189
+  - { slug: cloudflare, name: Cloudflare, provider: greenhouse, handle: cloudflare, default_country: US }  # 182
+  - { slug: block, name: Block, provider: greenhouse, handle: block, default_country: US }  # 180
+  - { slug: scale, name: Scale AI, provider: greenhouse, handle: scaleai, default_country: US }  # 175
+  - { slug: affirm, name: Affirm, provider: greenhouse, handle: affirm, default_country: US }  # 171
+  - { slug: figma, name: Figma, provider: greenhouse, handle: figma, default_country: US }  # 157
+  - { slug: elastic, name: Elastic, provider: greenhouse, handle: elastic, default_country: US }  # 156
+  - { slug: reddit, name: Reddit, provider: greenhouse, handle: reddit, default_country: US }  # 155
+  - { slug: pinterest, name: Pinterest, provider: greenhouse, handle: pinterest, default_country: US }  # 153
+  - { slug: twilio, name: Twilio, provider: greenhouse, handle: twilio, default_country: US }  # 151
+  - { slug: robinhood, name: Robinhood, provider: greenhouse, handle: robinhood, default_country: US }  # 137
+  - { slug: lyft, name: Lyft, provider: greenhouse, handle: lyft, default_country: US }  # 137
+  - { slug: asana, name: Asana, provider: greenhouse, handle: asana, default_country: US }  # 129
+  - { slug: instacart, name: Instacart, provider: greenhouse, handle: instacart, default_country: US }  # 125
 
-  # ── Greenhouse — Canada ──────────────────────────────────────────────────
-  - { slug: wealthsimple, name: Wealthsimple, provider: greenhouse, handle: wealthsimple, default_country: CA }
-  - { slug: 1password, name: 1Password, provider: greenhouse, handle: 1password, default_country: CA }
-  - { slug: faire, name: Faire, provider: greenhouse, handle: faire, default_country: US }
-  - { slug: clio, name: Clio, provider: greenhouse, handle: clio, default_country: CA }
+  # ── Greenhouse — mid-volume US ────────────────────────────────────────────
+  - { slug: vercel, name: Vercel, provider: greenhouse, handle: vercel, default_country: US }  # 83
+  - { slug: discord, name: Discord, provider: greenhouse, handle: discord, default_country: US }  # 78
+  - { slug: gusto, name: Gusto, provider: greenhouse, handle: gusto, default_country: US }  # 74
+  - { slug: chime, name: Chime, provider: greenhouse, handle: chime, default_country: US }  # 70
+  - { slug: faire, name: Faire, provider: greenhouse, handle: faire, default_country: US }  # 69
+  - { slug: opendoor, name: Opendoor, provider: greenhouse, handle: opendoor, default_country: US }  # 57
+  - { slug: carta, name: Carta, provider: greenhouse, handle: carta, default_country: US }  # 54
+  - { slug: mercury, name: Mercury, provider: greenhouse, handle: mercury, default_country: US }  # 54
+  - { slug: together_ai, name: Together AI, provider: greenhouse, handle: togetherai, default_country: US }  # 52
+  - { slug: pagerduty, name: PagerDuty, provider: greenhouse, handle: pagerduty, default_country: US }  # 45
+  - { slug: mixpanel, name: Mixpanel, provider: greenhouse, handle: mixpanel, default_country: US }  # 40
+  - { slug: marqeta, name: Marqeta, provider: greenhouse, handle: marqeta, default_country: US }  # 36
+  - { slug: recursion, name: Recursion, provider: greenhouse, handle: recursionpharmaceuticals, default_country: US }  # 32
+  - { slug: webflow, name: Webflow, provider: greenhouse, handle: webflow, default_country: US }  # 31
+  - { slug: stockx, name: StockX, provider: greenhouse, handle: stockx, default_country: US }  # 21
+  - { slug: airtable, name: Airtable, provider: greenhouse, handle: airtable, default_country: US }  # 19
 
-  # ── Lever — US + Canada ──────────────────────────────────────────────────
-  - { slug: shopify, name: Shopify, provider: lever, handle: shopify, default_country: CA }
-  - { slug: netflix, name: Netflix, provider: lever, handle: netflix, default_country: US }
-  - { slug: eventbrite, name: Eventbrite, provider: lever, handle: eventbrite, default_country: US }
-  - { slug: palantir, name: Palantir, provider: lever, handle: palantir, default_country: US }
-  - { slug: dialpad, name: Dialpad, provider: lever, handle: dialpad, default_country: US }
-  - { slug: intercom, name: Intercom, provider: lever, handle: intercom, default_country: US }
-  - { slug: getwave, name: Wave, provider: lever, handle: wave, default_country: CA }
-  - { slug: cresta, name: Cresta, provider: lever, handle: cresta, default_country: US }
-  - { slug: knockaway, name: Knock, provider: lever, handle: knock, default_country: US }
+  # ── Greenhouse — Canada ───────────────────────────────────────────────────
+  - { slug: d2l, name: D2L, provider: greenhouse, handle: d2l, default_country: CA }  # 38
+  - { slug: shakepay, name: Shakepay, provider: greenhouse, handle: shakepay, default_country: CA }  # 6
 
-  # ── Ashby — US + Canada ──────────────────────────────────────────────────
-  - { slug: linear, name: Linear, provider: ashby, handle: Linear, default_country: US }
-  - { slug: vanta, name: Vanta, provider: ashby, handle: Vanta, default_country: US }
-  - { slug: cohere, name: Cohere, provider: ashby, handle: cohere, default_country: CA }
-  - { slug: modal, name: Modal Labs, provider: ashby, handle: modal, default_country: US }
-  - { slug: replicate, name: Replicate, provider: ashby, handle: replicate, default_country: US }
-  - { slug: retool, name: Retool, provider: ashby, handle: retool, default_country: US }
-  - { slug: posthog, name: PostHog, provider: ashby, handle: posthog, default_country: US }
-  - { slug: hex, name: Hex, provider: ashby, handle: hex, default_country: US }
-  - { slug: warp, name: Warp, provider: ashby, handle: warp, default_country: US }
-  - { slug: ashby, name: Ashby, provider: ashby, handle: ashbyhq, default_country: US }
+  # ── Lever ─────────────────────────────────────────────────────────────────
+  - { slug: palantir, name: Palantir, provider: lever, handle: palantir, default_country: US }  # 226
+  - { slug: spotify, name: Spotify, provider: lever, handle: spotify, default_country: US }  # 196
+
+  # ── Ashby ─────────────────────────────────────────────────────────────────
+  - { slug: whatnot, name: Whatnot, provider: ashby, handle: whatnot, default_country: US }  # 207
+  - { slug: mistral, name: Mistral, provider: ashby, handle: mistral, default_country: US }  # 178
+  - { slug: vanta, name: Vanta, provider: ashby, handle: Vanta, default_country: US }  # 142
+  - { slug: notion, name: Notion, provider: ashby, handle: notion, default_country: US }  # 140
+  - { slug: cohere, name: Cohere, provider: ashby, handle: cohere, default_country: CA }  # 128
+  - { slug: ramp, name: Ramp, provider: ashby, handle: ramp, default_country: US }  # 110
+  - { slug: plaid, name: Plaid, provider: ashby, handle: plaid, default_country: US }  # 89
+  - { slug: 1password, name: 1Password, provider: ashby, handle: 1password, default_country: CA }  # 74
+  - { slug: perplexity, name: Perplexity AI, provider: ashby, handle: perplexity, default_country: US }  # 66
+  - { slug: wealthsimple, name: Wealthsimple, provider: ashby, handle: wealthsimple, default_country: CA }  # 32
+  - { slug: modal, name: Modal Labs, provider: ashby, handle: modal, default_country: US }  # 28
+  - { slug: zapier, name: Zapier, provider: ashby, handle: zapier, default_country: US }  # 24
+  - { slug: linear, name: Linear, provider: ashby, handle: Linear, default_country: US }  # 23
+  - { slug: trulioo, name: Trulioo, provider: ashby, handle: trulioo, default_country: CA }  # 21
+  - { slug: posthog, name: PostHog, provider: ashby, handle: posthog, default_country: US }  # 16
+  - { slug: warp, name: Warp, provider: ashby, handle: warp, default_country: US }  # 8
+  - { slug: pinecone, name: Pinecone, provider: ashby, handle: pinecone, default_country: US }  # 7
+  - { slug: runway, name: Runway, provider: ashby, handle: runway, default_country: US }  # 4
+
+# Off the providers we currently support (Phase 4 Workday rollout):
+#   DoorDash, Snowflake, OpenAI, Klarna, Etsy, Wayfair, Coinbase, Shopify,
+#   Lightspeed, HuggingFace, Verily, Tempus, 23andMe, Wiz, Snyk, Aurora, Skydio,
+#   Hims, Hinge Health, Confluent, Zendesk, Box, Hopper, Top Hat, Ada, ApplyBoard,
+#   Bench Accounting, Clio.
+# Most of these moved to Workday or proprietary careers pages. Re-evaluate
+# during Phase 4 when the Workday extractor lands.

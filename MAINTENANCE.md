@@ -46,42 +46,16 @@ Conventions:
 
 ### Companies registry
 
-- **~25 of 60 seed handles 404 or return 0 jobs.** First Phase 1 run had
-  19 boards yield jobs; the rest were dead. Specifically dead/empty:
-  - **Greenhouse 404**: `doordash`, `1password`, `wealthsimple`, `clio`,
-    `notion`, `cruise`, `rivian`, `coinbase` — likely moved off Greenhouse
-    (Cruise is defunct).
-  - **Greenhouse 200 / 0 jobs**: `hashicorp`, `sentry` — IBM acquired
-    HashiCorp, may have folded boards; Sentry may have hiring-paused.
-  - **Lever 404**: `shopify`, `eventbrite`, `intercom`, `dialpad`, `wave`,
-    `cresta`, `knock` — Lever's footprint has shrunk; most moved to
-    Greenhouse or Ashby.
-  - **Lever 200 / 0 jobs**: `netflix` — board exists but is empty (likely
-    paused public posting).
-  - Target: **Phase 1.5 (next maintenance pass)** — prune dead handles,
-    research current ATS for high-priority misses (Shopify in particular
-    needs to be back in the dataset; verify it's on Greenhouse now), and
-    drop entries that genuinely aren't reachable.
-  - Status: `open`.
-
-- **Tech-adjacent companies missing from `companies.yaml`.** First seed list
-  was too FAANG-leaning. Easy wins on the providers we already support:
-  - **Fintech / quant**: Affirm, Klarna, Carta, Mercury, Marqeta, Two Sigma,
-    Jane Street, Hudson River Trading, Citadel Securities (verify ATS),
-    Robinhood ✓ (already in).
-  - **AI / ML pure-play**: Hugging Face, Perplexity, Character.AI, Together AI,
-    Runway, Pinecone, Weights & Biases, Cohere ✓, Anthropic ✓, OpenAI ✓.
-  - **Biotech / health-tech**: Recursion, 23andMe, Verily, Insitro, Tempus,
-    Oscar Health, Hims, Hinge Health.
-  - **E-commerce / marketplaces**: Etsy, Wayfair, StockX, Whatnot, Faire ✓.
-  - **Self-driving / robotics**: Aurora, Zipline, Skydio, Anduril ✓.
-  - **Cybersecurity**: Wiz, Snyk, Cloudflare ✓, Vanta ✓, Datadog ✓.
-  - **Streaming / media**: Spotify, Roblox, Reddit, Discord ✓.
-  - **Canadian additions**: Lightspeed, D2L, Top Hat, Ada, Hopper, ApplyBoard,
-    Trulioo, Shakepay, Bench Accounting, Properly.
-  - Target: **Phase 1.5** — verify each handle returns 200 with non-zero jobs
-    before committing. Target ~80 working boards by end of Phase 2.
-  - Status: `open`.
+- **High-volume tech employers still missing.** After the 1.5 expansion the
+  remaining gaps are mostly Workday-only or proprietary careers pages:
+  - DoorDash, Snowflake, OpenAI, Klarna, Etsy, Wayfair, Coinbase, Shopify,
+    Lightspeed, Hugging Face, Verily, Tempus, 23andMe, Wiz, Snyk, Aurora,
+    Skydio, Hims, Hinge Health, Confluent, Zendesk, Box, Hopper, Top Hat,
+    Ada, ApplyBoard, Bench Accounting, Clio.
+  - Target: **Phase 4** — Workday extractor unlocks most of these (Snowflake,
+    Etsy, Wayfair, Shopify, DoorDash, Coinbase use Workday). Hugging Face +
+    OpenAI run their own careers pages; revisit if/when they expose JSON.
+  - Status: `wontfix-until-phase-4`.
 
 - **Why not non-tech sectors (banks, insurance, retail, healthcare systems)?**
   Out of scope for v1 by design (CLAUDE.md §1 + §3 lock #2). Most concentrate
@@ -138,4 +112,14 @@ Conventions:
 
 ## Resolved
 
-_(none yet — Phase 1 just shipped)_
+### 2026-05-08 — Phase 1.5 expansion
+
+- **Pruned dead seed handles + added 30 new tech-adjacent companies.**
+  Built `scripts/probe_handles.py` to probe (provider, handle) candidates in
+  parallel, kept the 65 that returned ≥1 job. Re-ingest produced **12,334 rows**
+  (up from 6,709, +84%) across 65 boards (47 Greenhouse, 16 Ashby, 2 Lever)
+  with 0 company failures. Notable new entries: Anduril (1,888), SpaceX (1,684),
+  Databricks (818), Jane Street (215), Plaid + Ramp via Ashby, Spotify via
+  Lever, Notion + Whatnot + Mistral via Ashby. Snapshot pushed to
+  `arjun10g/na-tech-jobs` commit `220ad34`. Closed both "dead seed handles"
+  and "tech-adjacent companies missing" items.
