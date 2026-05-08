@@ -23,26 +23,25 @@ Conventions:
 
 ### Data quality
 
-- **0% structured salary disclosure on Phase 1 snapshot.** All 6,709 rows came
-  back with `salary_disclosed=false` because Greenhouse/Lever/Ashby rarely
-  populate the structured pay-range fields — most boards bury salary in the
-  description text (e.g. "$135,000 - $180,000 USD"). Schema handles sparse
-  salaries (nullable + `salary_disclosed` bool), so this doesn't break Phase 2,
-  but the regressor will train on a thin disclosed set unless we add inline
-  text mining. CLAUDE.md §11 calls this out as a known risk.
-  - Target: **Phase 2** — add a regex pass in `ingestion/normalize.py` (or a
-    new `ingestion/salary_mining.py`) that runs when structured fields are empty.
-    Regex variants to support: `$XXX,XXX - $YYY,YYY`, `$XXXk - $YYYk`,
-    `USD XXX,XXX to YYY,YYY`, `CAD …`. Keep `salary_disclosed=true` only when
-    parse succeeds with high confidence.
-  - Status: `open`.
-
 - **Lever `interval=OneTime` mapped to `year`.** Only `per-year-salary` and
   the `*-salary` variants are documented. `OneTime` is a guess based on a
   handful of postings — could equally mean a one-off bonus rather than annual.
   - Target: **opportunistic** — when we actually see one in the wild, inspect
     and map correctly. Until then, the wrong mapping affects 0 rows.
   - Status: `open`.
+
+- **`offers_visa_sponsorship` at 0.3% fill, `direct_reports_count` near zero.**
+  These features are sparse in regex coverage because most descriptions don't
+  explicitly state sponsorship policy or report counts. Phase 1b NuExtract
+  should bump both significantly (LLM can read the contextual cues regex misses).
+  - Target: **Phase 1b** (NuExtract Tier 2 wiring).
+  - Status: `open`.
+
+- **Greenhouse double-encoded HTML in `description_md` was unprocessed.**
+  Greenhouse's API returns content as `&lt;h2&gt;`-style escaped HTML, which
+  caused `markdownify` to emit literal HTML rather than markdown. Fixed in
+  Step 1a by `html.unescape` before `markdownify`. The 2026-05-08 backfill
+  re-processed the entire snapshot. **Resolved 2026-05-08.**
 
 ### Companies registry
 
@@ -111,6 +110,30 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 2 Step 1a: feature-extraction cascade
+
+- **Built the regex-first cascade** at `ingestion/feature_extraction/`. Tier 1
+  ships seven regex modules (salary, experience+education, requirements,
+  remote+schedule, comp-extras, contract+quality+language+manager,
+  tech_stack). Tier 2 (NuExtract) is stubbed; lands in Step 1b. Per-field
+  provenance flows through `extraction_meta`.
+- **Schema expanded** with 22 new feature columns + `extraction_meta` +
+  `extraction_version` on `CanonicalJob`. Pandera validates them; nullable
+  Int64 / pandas BooleanDtype / object lists roundtrip cleanly through parquet.
+- **Salary mining live**: 0% → **49.8% disclosure rate** on the 12,334-row
+  snapshot, in the CLAUDE.md §11 expected band of 50-70%.
+- **Other key fill rates** (post-backfill): min_years_experience 81.8%,
+  offers_equity 64.9%, tech_stack 64.7%, remote_policy 44.7% (was 19.6%
+  pre-cascade), bonus_mentioned 36.3%, contract_type 34.4%, manager_role 25.5%,
+  min_education 25.2%, requires_security_clearance 9.8% (concentrated at
+  Anduril/SpaceX as expected).
+- **HTML→MD bug fixed** — Greenhouse double-encodes content; needed
+  `html.unescape` before `markdownify`.
+- **123 unit tests** covering positive + negative cases for every Tier 1
+  extractor, including critical regressions (the "up to 100% match on 401k"
+  false-positive on travel percent).
+- Snapshot pushed: `arjun10g/na-tech-jobs` commit `c2d9db0`.
 
 ### 2026-05-08 — Phase 1.5 expansion
 

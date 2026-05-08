@@ -35,8 +35,11 @@ def coerce_dtypes(df: pd.DataFrame) -> pd.DataFrame:
             df[ts_col] = pd.to_datetime(df[ts_col], utc=True, errors="coerce")
     if "salary_disclosed" in df.columns:
         df["salary_disclosed"] = df["salary_disclosed"].fillna(False).astype(bool)
+    if "extraction_version" in df.columns:
+        df["extraction_version"] = df["extraction_version"].fillna("v1").astype(str)
 
     string_cols = [
+        # identity / location / source
         "id",
         "company_slug",
         "company_name",
@@ -54,6 +57,17 @@ def coerce_dtypes(df: pd.DataFrame) -> pd.DataFrame:
         "description_md",
         "source",
         "raw_payload_hash",
+        # Phase 2 enum-as-string columns (Pandera enforces the value set)
+        "min_education",
+        "clearance_level",
+        "offers_visa_sponsorship",
+        "equity_form",
+        "bonus_type",
+        "contract_type",
+        "manager_role",
+        "posting_quality",
+        "team_or_department",
+        "extraction_version",
     ]
     for col in string_cols:
         if col in df.columns:
@@ -64,6 +78,41 @@ def coerce_dtypes(df: pd.DataFrame) -> pd.DataFrame:
     for col in float_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Nullable integers (pandas Int64 allows NaN-as-NA, unlike numpy int64).
+    nullable_int_cols = [
+        "min_years_experience",
+        "max_years_experience",
+        "max_travel_percent",
+        "direct_reports_count",
+    ]
+    for col in nullable_int_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+
+    # Nullable booleans roundtripped through pandas BooleanDtype.
+    nullable_bool_cols = [
+        "requires_security_clearance",
+        "offers_relocation",
+        "offers_equity",
+        "bonus_mentioned",
+        "on_call_required",
+    ]
+    for col in nullable_bool_cols:
+        if col in df.columns:
+            df[col] = df[col].astype("boolean")
+
+    # List/dict object columns — leave as-is; parquet handles them natively.
+    object_cols = [
+        "requires_citizenship",
+        "language_requirements",
+        "tech_stack",
+        "industry_experience",
+        "extraction_meta",
+    ]
+    for col in object_cols:
+        if col in df.columns:
+            df[col] = df[col].where(df[col].notna(), None)
 
     return df
 

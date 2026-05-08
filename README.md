@@ -20,10 +20,17 @@ out-of-scope decisions — lives in [`CLAUDE.md`](CLAUDE.md).
 ✅ **Phase 0 — scaffolding.** Repo bootstrapped, CI green, hello-world Gradio
 app live at https://arjun10g-na-tech-jobs.hf.space.
 
-🚧 **Phase 1 — ingestion v1.** Greenhouse + Lever + Ashby extractors,
+✅ **Phase 1 — ingestion v1.** Greenhouse + Lever + Ashby extractors,
 async-fan-out orchestrator, Pandera-validated parquet snapshots pushed weekly
 to https://huggingface.co/datasets/arjun10g/na-tech-jobs. Latest snapshot:
 ~12.3k jobs across 65 verified boards (US 95% / CA 5%).
+
+🚧 **Phase 2 — feature extraction cascade + curated layer + salary regressor.**
+Step 1a (done): regex-first extraction cascade for ~22 features
+(salary mining, security clearance, citizenship, sponsorship, equity, bonus,
+remote policy, contract type, posting quality, tech stack, …). Salary disclosure
+went from 0% → 49.8%. Per-field provenance in `extraction_meta`.
+Step 1b (next): NuExtract-tiny LLM Tier 2 fallback for fields regex misses.
 
 See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased plan.
 

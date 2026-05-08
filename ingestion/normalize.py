@@ -365,8 +365,26 @@ def is_likely_french(job: CanonicalJob) -> bool:
 # --- Top-level pipeline ------------------------------------------------------
 
 
-def normalize(job: CanonicalJob, default_country: str | None = None) -> CanonicalJob:
-    """Apply all derivations; returns a new CanonicalJob (does not mutate)."""
+def normalize(
+    job: CanonicalJob,
+    default_country: str | None = None,
+    *,
+    use_llm: bool = True,
+) -> CanonicalJob:
+    """Apply all derivations; returns a new CanonicalJob (does not mutate).
+
+    Runs (in order):
+    1. Title cleanup + naive seniority / role-family extraction.
+    2. Location parser (country / region / city / remote_policy).
+    3. Structured-salary normalize (CAD→USD, period→year).
+    4. Tier 1 regex feature cascade over ``description_md`` (mines salary
+       when structured fields are empty, plus 20 other features).
+       Tier 2 (NuExtract) is invoked when regex confidence is low.
+    5. Cross-fills: any salary mined via regex feeds the
+       ``salary_min_usd_yearly`` / ``salary_max_usd_yearly`` columns too.
+    """
+    from ingestion.feature_extraction import extract_features
+
     title = _strip_title_suffix(job.title)
 
     loc = parse_location(job.location_raw, default_country)
@@ -379,6 +397,69 @@ def normalize(job: CanonicalJob, default_country: str | None = None) -> Canonica
     # instances explicitly so model_dump() doesn't emit serializer warnings.
     remote_policy = RemotePolicy(loc["remote_policy"]) if loc["remote_policy"] else None
 
+    # ── Feature cascade (regex first; LLM stub no-op in Step 1a) ──────────
+    features = extract_features(
+        description_md=job.description_md or "",
+        title=title,
+        use_llm=use_llm,
+    )
+
+    # If regex mined a salary, fold it into the structured columns too so the
+    # downstream regressor sees one unified salary view.
+    salary_min_struct = job.salary_min
+    salary_max_struct = job.salary_max
+    salary_currency_struct = job.salary_currency
+    salary_period_struct = job.salary_period
+    salary_disclosed_struct = job.salary_disclosed
+
+    if not salary_disclosed_struct and features.get("salary_disclosed"):
+        salary_min_struct = features.get("salary_min")
+        salary_max_struct = features.get("salary_max")
+        salary_currency_struct = features.get("salary_currency")
+        period_value = features.get("salary_period")
+        salary_period_struct = SalaryPeriod(period_value) if period_value else None
+        salary_disclosed_struct = True
+        salary_min_usd, salary_max_usd = normalize_salary(
+            salary_min_struct,
+            salary_max_struct,
+            salary_currency_struct,
+            period_value,
+        )
+
+    # If feature cascade saw a richer remote_policy than the location string,
+    # promote it.
+    extracted_remote = features.get("remote_policy_extracted")
+    if remote_policy is None and extracted_remote:
+        import contextlib
+
+        with contextlib.suppress(ValueError):
+            remote_policy = RemotePolicy(
+                "remote-na"
+                if extracted_remote == "remote" and loc["country"] in ("US", "CA")
+                else extracted_remote
+            )
+
+    # Build the update dict. Only carry over feature-cascade fields that are
+    # actual schema columns (drop salary_* and remote_policy_extracted; we've
+    # already merged those above).
+    schema_features = {
+        k: v
+        for k, v in features.items()
+        if k
+        not in {
+            "salary_min",
+            "salary_max",
+            "salary_currency",
+            "salary_period",
+            "salary_disclosed",
+            "remote_policy_extracted",
+        }
+    }
+
+    # Convert string enums to typed enum instances so downstream serialization
+    # is stable.
+    schema_features = _coerce_feature_enums(schema_features)
+
     return job.model_copy(
         update={
             "title": title,
@@ -388,10 +469,46 @@ def normalize(job: CanonicalJob, default_country: str | None = None) -> Canonica
             "remote_policy": remote_policy,
             "seniority_extracted": extract_seniority(title),
             "role_family_extracted": extract_role_family(title),
+            "salary_min": salary_min_struct,
+            "salary_max": salary_max_struct,
+            "salary_currency": salary_currency_struct,
+            "salary_period": salary_period_struct,
+            "salary_disclosed": salary_disclosed_struct,
             "salary_min_usd_yearly": salary_min_usd,
             "salary_max_usd_yearly": salary_max_usd,
+            **schema_features,
         }
     )
+
+
+_ENUM_FEATURE_FIELDS = {
+    "min_education": "Education",
+    "clearance_level": "ClearanceLevel",
+    "offers_visa_sponsorship": "SponsorshipPolicy",
+    "equity_form": "EquityForm",
+    "bonus_type": "BonusType",
+    "contract_type": "ContractType",
+    "manager_role": "ManagerRole",
+    "posting_quality": "PostingQuality",
+}
+
+
+def _coerce_feature_enums(features: dict) -> dict:
+    """Convert raw enum-string values to their Enum class so model_dump
+    emits the canonical .value reliably."""
+    from ingestion import schema as _schema
+
+    out = dict(features)
+    for field, cls_name in _ENUM_FEATURE_FIELDS.items():
+        v = out.get(field)
+        if v is None:
+            continue
+        cls = getattr(_schema, cls_name)
+        try:
+            out[field] = cls(v)
+        except ValueError:
+            out[field] = None
+    return out
 
 
 # --- Time helpers ------------------------------------------------------------

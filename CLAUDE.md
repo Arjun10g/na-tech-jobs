@@ -2,6 +2,13 @@
 
 > Working name: `na-tech-jobs` (final name TBD by owner). This document is the project bible — every architectural decision, model choice, phase of work, and known tradeoff lives here. When in doubt, this file wins.
 
+## Decision deltas
+
+Living deltas where reality diverged from the original plan. Newest first.
+
+- **2026-05-08 — Feature-extraction cascade pulled forward to Phase 2.** Originally NuExtract was scoped to Phase 4 only. We now build a regex-first cascade in Phase 2 Step 1a (regex Tier 1 only) → Step 1b wires NuExtract-tiny as Tier 2. Rationale: Phase 1's read-through revealed ~20 high-value features (security clearance, citizenship, sponsorship, equity form, bonus type, contract type, posting quality, tech stack, etc.) buried in description text, *all* of which improve the salary regressor. Building the cascade once, with both tiers, beats two passes. Phase 4 still owns the seniority + role-family DeBERTa classifiers. See §7 task list and `ingestion/feature_extraction/` for the new module layout.
+- **2026-05-08 — Python 3.11 floor relaxed to 3.10.** HF Spaces' Gradio SDK image hard-codes Python 3.10 and ignores the `python_version` frontmatter. We resolve dependencies for 3.10 in CI / Space pushes; local dev + GH Actions stay on 3.11 via `.python-version`. See `infra/secrets.md` and the deploy workflow for the resolution flow.
+
 ---
 
 ## 1. Project mission

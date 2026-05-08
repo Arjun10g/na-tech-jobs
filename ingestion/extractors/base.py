@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html as html_module
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -47,10 +48,16 @@ def hash_payload(payload: Any) -> str:
 
 
 def html_to_markdown(html: str | None) -> str:
-    """Convert ATS-provided HTML descriptions to clean markdown."""
+    """Convert ATS-provided HTML descriptions to clean markdown.
+
+    Greenhouse double-encodes their content (``&lt;h2&gt;`` rather than
+    ``<h2>``); markdownify alone leaves it as escaped text. Unescape first,
+    then convert.
+    """
     if not html:
         return ""
-    return markdownify(html, heading_style="ATX", strip=["script", "style"]).strip()
+    decoded = html_module.unescape(html)
+    return markdownify(decoded, heading_style="ATX", strip=["script", "style"]).strip()
 
 
 def make_client() -> httpx.AsyncClient:
