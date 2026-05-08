@@ -27,12 +27,13 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Generate requirements.txt for Space
+      - name: Generate requirements.txt for Space (Python 3.10 base)
         run: |
           uv export \
             --no-dev \
             --no-hashes \
             --no-emit-project \
+            --python 3.10 \
             --format requirements-txt \
             > requirements.txt
 
@@ -75,7 +76,6 @@ jobs:
           colorTo: blue
           sdk: gradio
           sdk_version: 5.49.1
-          python_version: "3.11"
           app_file: app/main.py
           pinned: false
           license: mit
