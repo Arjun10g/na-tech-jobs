@@ -6,8 +6,6 @@ filled in across phases 3-8.
 
 from __future__ import annotations
 
-import os
-
 import gradio as gr
 
 PROJECT_NAME = "na-tech-jobs"
@@ -40,6 +38,7 @@ def build_app() -> gr.Blocks:
     return app
 
 
+demo = build_app()
+
 if __name__ == "__main__":
-    server_port = int(os.environ.get("PORT", 7860))
-    build_app().launch(server_name="0.0.0.0", server_port=server_port, ssr_mode=False)
+    demo.launch(ssr_mode=False)
