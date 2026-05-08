@@ -885,7 +885,156 @@ preparation, not EDA-side.
 
 ---
 
-## 16. References
+## 16. Modelling approach: parsimonious ladder, not direct-to-XGBoost
+
+The reflexive choice for tabular regression is **XGBoost first** because
+gradient-boosted trees dominate tabular benchmarks ([Grinsztajn et al
+2022, _Why do tree-based models still outperform deep learning on tabular
+data?_, NeurIPS]; [Shwartz-Ziv & Armon 2022, _Tabular Data: Deep Learning
+Is Not All You Need_, Information Fusion]; [Borisov et al 2022 already
+cited]). For our project that's eventually correct — but the literature is
+equally clear that **starting** with a complex model breaks three things
+that matter for a senior-DS portfolio piece.
+
+### 16.1 Why parsimonious-first
+
+1. **Two-cultures discipline** [Breiman 2001, _Statistical Modeling: The
+   Two Cultures_, Statistical Science]. Breiman's framing — "data
+   modelling" (interpretable, hypothesis-driven) vs. "algorithmic
+   modelling" (predictive, black-box) — argues that you should start in
+   the data-modelling culture so that what the algorithmic model
+   eventually learns is **traceable to economically-meaningful effects**
+   (years of experience, education, region) rather than to opaque
+   feature interactions.
+
+2. **Bias-variance baselines** [Hastie, Tibshirani & Friedman 2009, §7.3].
+   The marginal value of model complexity is only legible against a
+   simpler reference. Reporting "XGBoost MAE = $22k" tells a recruiter
+   nothing; reporting "constant baseline $52k → Mincer OLS $34k →
+   Ridge $28k → XGBoost $22k" tells them where the model's wins
+   actually come from.
+
+3. **Modern guidance is explicit on this**. Géron 2022 §2.6 ("a baseline
+   first") and Kuhn & Johnson 2013 §1.3-2 both encode the practice:
+   _build the simplest sensible model, beat it deliberately_.
+
+### 16.2 The standard ladder for tabular regression
+
+| Tier | Model                                   | Role                                                   | Key reference         |
+|-----:|-----------------------------------------|--------------------------------------------------------|------------------------|
+|  0   | Constant (mean of `log10` target)       | "no information" reference for variance reduction      | Géron 2022 §2.6        |
+|  1   | Stratified mean (by country × source)  | "easy" baseline using the split keys                    | Kuhn & Johnson §1.3-2 |
+|  2   | OLS — **Mincer equation form**          | Discipline anchor: years experience + education + a few categoricals | Mincer 1974          |
+|  3   | Ridge / Elastic Net on full features    | Linear with regularization, multicollinearity-safe     | Hoerl & Kennard 1970   |
+|  4   | Random Forest                           | Non-linear + interactions, no encoding sensitivity     | Breiman 2001 (RF paper) |
+|  5   | XGBoost + Optuna (this project's pick) | Gradient-boosted trees; SOTA tabular regression        | Chen & Guestrin 2016   |
+| (6)  | EBM / GA²M (optional, deferred)        | Caruana's interpretable boosting; near-GBDT accuracy with full transparency | Caruana et al 2015 |
+| (7)  | Tabular DL (FT-Transformer, NODE)      | When n is huge or text/image inputs dominate           | Gorishniy et al 2021  |
+
+**The ladder is monotone in complexity, not necessarily in accuracy.** It
+is _normal_ for Tier 3 (Ridge) to come within 5-10% of Tier 5 (XGBoost)
+on cleanly-encoded tabular data, and the gap is the deliverable for the
+model card.
+
+### 16.3 The Mincer equation as compensation's discipline anchor
+
+The **Mincer earnings function** [Mincer 1974, _Schooling, Experience, and
+Earnings_]:
+
+```
+log(salary) = β₀ + β₁ · schooling_years + β₂ · experience + β₃ · experience²
+```
+
+is the canonical functional form across 50 years of labour-economics
+literature ([Heckman, Lochner & Todd 2006, _Earnings Functions, Rates of
+Return and Treatment Effects_, Handbook of the Economics of Education]).
+The quadratic in experience captures the empirical pattern that returns
+to experience flatten and eventually decline.
+
+Even though we will not _ship_ a Mincer model, fitting one as Tier 2 has
+two virtues:
+
+1. The β coefficients are interpretable in dollars-per-year-of-experience
+   and dollars-per-year-of-schooling — directly comparable to BLS / HRS
+   estimates from the labour-econ literature.
+2. If our Tier 5 XGBoost dramatically outperforms Tier 2, we can attribute
+   the difference to non-linear interactions (likely with `country`,
+   `source`, `tech_stack`) and document that in the model card.
+
+### 16.4 Modern evidence: when does GBDT actually win?
+
+Two recent benchmark papers settle the GBDT-vs-DL debate for tabular:
+
+- **Shwartz-Ziv & Armon (2022)** [_Information Fusion_]: across 11
+  datasets, XGBoost outperforms recent tabular-DL architectures
+  (TabNet, NODE, DNF-Net) on the majority. Hyperparameter-tuning all
+  models exhaustively narrows the gap, but XGBoost wins or ties on
+  out-of-distribution generalization tests.
+- **Grinsztajn et al (2022)** [_NeurIPS_]: even with 10,000+ rows and
+  carefully-tuned MLPs / ResNets / Transformers, gradient-boosted trees
+  win on 70% of benchmarks. Their explanation: tree models handle
+  irregular target functions and non-smooth boundaries that
+  rotation-invariant DL architectures struggle with — exactly the kind
+  of step-function relationships in compensation data
+  (e.g. discrete jumps at level boundaries `senior` → `staff`).
+
+For our 6,146-row disclosed sample with mostly-tabular features + a
+1024-dim text embedding (Phase 5), this puts XGBoost squarely in its
+sweet spot. The ladder still matters: we want to **show**, not assume,
+that the gain from XGBoost is worth its complexity.
+
+### 16.5 Our ladder, instantiated
+
+Six tiers, all evaluated on the **same frozen test set**
+(`data/eda/test_split_ids.json`, n=2,488, 20.2% holdout, stratified by
+country × source).
+
+| Tier | Module                       | Implementation                                                        | Headline metric                          |
+|-----:|------------------------------|-----------------------------------------------------------------------|------------------------------------------|
+|  0   | `models/salary/baselines.py` | `np.full(n, train_mean_log)`                                          | MAE in USD (back-transformed)            |
+|  1   | `models/salary/baselines.py` | Per-(country, source) cell mean with empirical-Bayes shrinkage        | MAE in USD                               |
+|  2   | `models/salary/linear.py`    | `statsmodels.OLS` Mincer form (yoe + yoe² + edu + country)            | MAE + β coefficients with 95% CIs        |
+|  3   | `models/salary/linear.py`    | `sklearn.linear_model.Ridge` over full encoded matrix; CV-tuned α     | MAE + Ridge α + path                     |
+|  4   | `models/salary/forest.py`    | `sklearn.RandomForestRegressor`, n_estimators=500, sqrt features      | MAE + permutation importance             |
+|  5   | `models/salary/xgb.py`       | `xgboost.XGBRegressor` + Optuna 50 trials                              | MAE + Shapley importance                 |
+
+For each tier we report:
+- **Headline MAE in USD** (back-transformed from log-residual)
+- **MAPE**
+- **R² on the log-target**
+- **Stratified MAE** for `(country, source)` cells (CLAUDE.md §7 requirement)
+- **Bootstrap 95% CI** on the headline MAE — the substitute for the power
+  analysis we deliberately skipped (§15.3 #15)
+- **Improvement over previous tier** with bootstrap CI on Δ MAE — a
+  delta is meaningful only when its CI excludes zero
+
+All runs go to MLflow (`mlruns/` SQLite backend); the winning tier is
+pushed to `arjun10g/na-tech-jobs-salary-v1` on HF Hub with an
+auto-generated model card per [Mitchell et al 2019, _Model Cards for
+Model Reporting_, FAccT].
+
+### 16.6 What we expect (informed prior)
+
+Based on the literature [Hastie et al §10.10; Shwartz-Ziv & Armon 2022]
+and our EDA (Spearman 0.55 for `min_years_experience`, ANOVA F's for the
+ordinals all >100):
+
+- Tier 0 baseline MAE: ≈ **$52-60k** (≈ MAD of disclosed salaries on log
+  scale, back-transformed).
+- Tier 1 stratified mean: **$45-50k** (some lift from country and ATS).
+- Tier 2 Mincer OLS: **$32-38k** (linear-in-log captures most of the
+  variance from yoe + education + country).
+- Tier 3 Ridge: **$26-32k** (regularized version of OLS over the full
+  feature set).
+- Tier 4 Random Forest: **$22-28k**.
+- Tier 5 XGBoost: **$18-25k** — the CLAUDE.md target is < $25k.
+
+These are point predictions; the bootstrap CIs in the model card will
+quantify how much overlap the tiers actually have.
+
+---
+
+## 17. References
 
 Atkinson, A.B., Piketty, T. (2007). _Top Incomes Over the Twentieth
 Century: A Contrast Between Continental European and English-Speaking
@@ -926,6 +1075,29 @@ Wickham, H. (2014). _Tidy Data_. Journal of Statistical Software 59.
 Wasserstein, R.L., Lazar, N.A. (2016). _The ASA Statement on p-Values:
 Context, Process, and Purpose_. The American Statistician 70(2). (Cited
 re. abandoning hypothesis tests at large n in favour of effect sizes.)
+
+Breiman, L. (2001a). _Statistical Modeling: The Two Cultures_. Statistical
+Science 16(3). (The "ladder of complexity" framing of §16.1.)
+
+Breiman, L. (2001b). _Random Forests_. Machine Learning 45(1).
+
+Caruana, R., Lou, Y., Gehrke, J., Koch, P., Sturm, M., Elhadad, N. (2015).
+_Intelligible Models for HealthCare: Predicting Pneumonia Risk and
+Hospital 30-Day Readmission_. KDD. (EBM / GA²M; deferred Tier 6 of §16.5.)
+
+Gorishniy, Y., Rubachev, I., Khrulkov, V., Babenko, A. (2021).
+_Revisiting Deep Learning Models for Tabular Data_. NeurIPS. (FT-Transformer
+benchmark.)
+
+Grinsztajn, L., Oyallon, E., Varoquaux, G. (2022). _Why do tree-based
+models still outperform deep learning on tabular data?_. NeurIPS Datasets
+& Benchmarks. (Cited in §16.4.)
+
+Hoerl, A.E., Kennard, R.W. (1970). _Ridge Regression: Biased Estimation
+for Nonorthogonal Problems_. Technometrics 12(1). (Tier 3 baseline.)
+
+Shwartz-Ziv, R., Armon, A. (2022). _Tabular Data: Deep Learning Is Not
+All You Need_. Information Fusion 81. (Cited in §16.4.)
 
 
 
@@ -1028,7 +1200,7 @@ _Modeling Tabular Data Using Conditional GAN_. NeurIPS.
 
 ---
 
-## 17. Changelog
+## 18. Changelog
 
 - **2026-05-08** (v1): Initial draft. Sections 1-14 cover predictor-by-predictor
   treatment with citations; §14 condenses to the recommendations table for the
@@ -1038,6 +1210,15 @@ _Modeling Tabular Data Using Conditional GAN_. NeurIPS.
   the 20-stage EDA checklist + 10-stage data-prep checklist. Found 15/20
   EDA stages done, 1 missing (PCA/multivariate), 4 partial. Data-prep
   stages all correctly deferred to Step 3.
+- **2026-05-08** (v1.3): Added §16 — modelling-approach section.
+  Documents the parsimonious-first ladder (Tier 0 constant → Tier 5
+  XGBoost+Optuna), the Mincer 1974 anchor for Tier 2, and modern
+  evidence (Shwartz-Ziv & Armon 2022, Grinsztajn et al 2022) for why
+  GBDT beats tabular DL in our regime. Per-tier expected MAE bands
+  documented for honest progress reporting in the eventual model card.
+  References extended with Breiman (two-cultures + RF), Caruana et al
+  (EBM, deferred Tier 6), Hoerl & Kennard (Ridge), Gorishniy et al
+  (tabular DL benchmark).
 - **2026-05-08** (v1.2): Closed three of the four EDA gaps from v1.1.
   - **#2 train/test split before EDA**: `eda/split.py` ships a deterministic
     stratified-by-(country, source) split with frozen test_ids manifest at
