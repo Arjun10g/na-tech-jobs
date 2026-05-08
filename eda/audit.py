@@ -586,9 +586,7 @@ def audit_multicollinearity(df: pd.DataFrame) -> dict[str, Any]:
     # Condition number of the design matrix (informational; not VIF)
     cond_num = None
     try:
-        cond_num = round(
-            float(np.linalg.cond(np.column_stack([np.ones(len(matrix)), matrix]))), 1
-        )
+        cond_num = round(float(np.linalg.cond(np.column_stack([np.ones(len(matrix)), matrix]))), 1)
     except Exception:  # noqa: BLE001
         cond_num = None
 
