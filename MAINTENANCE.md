@@ -111,6 +111,32 @@ Conventions:
 
 ## Resolved
 
+### 2026-05-08 — Phase 2 Step 1b: NuExtract Tier 2 wired, dormant by default
+
+- **Real `NuExtract` wrapper landed** at `ingestion/feature_extraction/llm/nuextract.py`.
+  Lazy-loads `numind/NuExtract-tiny-v1.5`, picks MPS / CUDA / CPU by availability,
+  uses left-padded batched generation. `run_batch()` is the throughput path used
+  by `cascade.extract_features_batch()`. 30 NuExtract-specific tests with the
+  model fully mocked, including a regression that aligned the batch-output index
+  back to the input index.
+- **Backfill path supports `--use-llm`, `--sample-llm N`, `--llm-batch-size`** via
+  `scripts/backfill_features.py`. A two-pass mode (regex everywhere, then LLM
+  on a random subset) keeps partial-coverage runs simple.
+- **Throughput reality check (M-series Mac, MPS, float16)**:
+  - batch=1  → 8.0 s/row
+  - batch=8  → 4.6 s/row (after `MAX_INPUT_CHARS=2000`)
+  - batch=16 → 3.6 s/row → 12.3 hrs for the 12k snapshot
+- **Decision: keep Tier 2 dormant by default.** `LLM_ELIGIBLE_FIELDS = frozenset()`
+  in `cascade.py`. The fields it would fill (industry_experience, team_or_department,
+  prose-only tech stack mentions, more nuanced sponsorship / citizenship language)
+  don't feed the salary regressor (Step 3) and the bge-m3 description embedding
+  (Phase 5) carries the same semantic signal where it matters. Cost-benefit
+  doesn't justify the 12+ hr backfill yet.
+- **Re-enable path documented**: populate `LLM_ELIGIBLE_FIELDS` and run
+  `uv run python -m scripts.backfill_features --use-llm --llm-batch-size 16`,
+  ideally on a GPU box (HF Jobs A10G ≈ 30 min ≈ $0.50, or ZeroGPU on the
+  existing Pro Space). Local Mac MPS is feasible overnight.
+
 ### 2026-05-08 — Phase 2 Step 1a: feature-extraction cascade
 
 - **Built the regex-first cascade** at `ingestion/feature_extraction/`. Tier 1

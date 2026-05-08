@@ -31,7 +31,7 @@ from pathlib import Path
 import pandas as pd
 from markdownify import markdownify
 
-from ingestion.feature_extraction import extract_features
+from ingestion.feature_extraction import extract_features, extract_features_batch
 from ingestion.normalize import (
     extract_role_family,
     extract_seniority,
@@ -83,10 +83,14 @@ def _normalize_html(desc: str) -> str:
     return desc
 
 
-def _row_features(row: pd.Series) -> dict:
+def _row_features(row: pd.Series, *, use_llm: bool = False, feats: dict | None = None) -> dict:
+    """Stitch cascade features back onto the raw row (location, salary,
+    seniority, ...). When ``feats`` is supplied (from the batch path), reuse
+    it instead of re-running the cascade."""
     desc = _normalize_html(row.get("description_md") or "")
     title = row.get("title") or ""
-    feats = extract_features(desc, title=title)
+    if feats is None:
+        feats = extract_features(desc, title=title, use_llm=use_llm)
 
     # Roll mined salary into the structured columns + USD-yearly normalization,
     # mirroring normalize.normalize().
@@ -144,14 +148,63 @@ def _row_features(row: pd.Series) -> dict:
     return out
 
 
-def backfill(input_path: Path) -> tuple[pd.DataFrame, dict]:
+def backfill(
+    input_path: Path,
+    *,
+    use_llm: bool = False,
+    sample_llm: int | None = None,
+    sample_seed: int = 42,
+    llm_batch_size: int = 8,
+) -> tuple[pd.DataFrame, dict]:
+    """Run the cascade across the snapshot.
+
+    - ``use_llm=False`` (default): regex-only, fast (~3 min for 12k rows).
+    - ``use_llm=True``: regex+LLM for every row. Uses batched generation;
+      on Apple MPS expect ~1-2 s/row depending on schema/text length.
+    - ``sample_llm=N``: regex for every row, then a random N-row subset gets
+      the LLM tier on top. Useful for partial coverage or smoke testing.
+    - ``llm_batch_size``: how many prompts to feed NuExtract per generate call.
+      8 is a good default on a 16GB-unified-memory M-series Mac; bump to 16
+      with float16 + GPU.
+    """
     started = datetime.now(timezone.utc)
     df = pd.read_parquet(input_path)
-    logger.info("loaded %d rows from %s", len(df), input_path)
+    logger.info(
+        "loaded %d rows from %s (use_llm=%s, sample_llm=%s, batch=%d)",
+        len(df),
+        input_path,
+        use_llm,
+        sample_llm,
+        llm_batch_size,
+    )
 
-    updates = df.apply(_row_features, axis=1, result_type="expand")
-    for col in updates.columns:
-        df[col] = updates[col]
+    def _run_cascade_batch(target_df: pd.DataFrame, *, llm_on: bool) -> None:
+        """Mutate ``target_df`` in place with cascade outputs, batched."""
+        # Pre-clean HTML once.
+        descs = [_normalize_html(d or "") for d in target_df["description_md"].tolist()]
+        titles = [t or "" for t in target_df["title"].tolist()]
+        rows = list(zip(descs, titles, strict=True))
+        feats_list = extract_features_batch(rows, use_llm=llm_on, llm_batch_size=llm_batch_size)
+        for (orig_idx, row), feats, desc in zip(
+            target_df.iterrows(), feats_list, descs, strict=True
+        ):
+            row_with_desc = row.copy()
+            row_with_desc["description_md"] = desc
+            updates = _row_features(row_with_desc, use_llm=llm_on, feats=feats)
+            for col, value in updates.items():
+                target_df.at[orig_idx, col] = value
+
+    if sample_llm is not None and sample_llm > 0 and sample_llm < len(df):
+        # Two-pass: regex everywhere, then LLM on the sampled rows.
+        _run_cascade_batch(df, llm_on=False)
+        sample_idx = df.sample(sample_llm, random_state=sample_seed).index
+        logger.info("running LLM on %d sampled rows (batched)…", len(sample_idx))
+        sub = df.loc[sample_idx].copy()
+        _run_cascade_batch(sub, llm_on=True)
+        for col in sub.columns:
+            df.loc[sample_idx, col] = sub[col]
+    else:
+        _run_cascade_batch(df, llm_on=use_llm)
 
     # Compute per-feature hit rates.
     finished = datetime.now(timezone.utc)
@@ -164,15 +217,37 @@ def backfill(input_path: Path) -> tuple[pd.DataFrame, dict]:
 
     salary_disclosed_rate = round(df["salary_disclosed"].mean() * 100, 1)
 
+    # Provenance breakdown: how many fields filled by regex vs llm vs structured.
+    source_breakdown = _source_breakdown(df)
+
     report = {
         "input_rows": len(df),
+        "use_llm": use_llm,
+        "sample_llm": sample_llm,
         "started_at": started.isoformat(),
         "finished_at": finished.isoformat(),
         "duration_sec": (finished - started).total_seconds(),
         "salary_disclosed_rate": salary_disclosed_rate,
         "feature_hit_rates": hit_rates,
+        "source_breakdown": source_breakdown,
     }
     return df, report
+
+
+def _source_breakdown(df: pd.DataFrame) -> dict[str, dict[str, int]]:
+    out: dict[str, dict[str, int]] = {}
+    if "extraction_meta" not in df.columns:
+        return out
+    for meta in df["extraction_meta"].dropna():
+        if not isinstance(meta, dict):
+            continue
+        for field, info in meta.items():
+            source = info.get("source") if isinstance(info, dict) else None
+            if not source:
+                continue
+            out.setdefault(field, {"regex": 0, "llm": 0, "structured": 0}).setdefault(source, 0)
+            out[field][source] += 1
+    return out
 
 
 def parse_args() -> argparse.Namespace:
@@ -181,6 +256,27 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-dir", default="data")
     p.add_argument("--snapshot-date", default=None, help="Override snapshot date (YYYY-MM-DD)")
     p.add_argument("--push-to-hub", action="store_true")
+    p.add_argument(
+        "--use-llm",
+        action="store_true",
+        help="Run NuExtract Tier 2 on every row. Slow (~4-7s/row).",
+    )
+    p.add_argument(
+        "--sample-llm",
+        type=int,
+        default=None,
+        help=(
+            "Run regex on every row, then run NuExtract on a random N-row subset. "
+            "Useful for partial coverage when full LLM backfill is too slow."
+        ),
+    )
+    p.add_argument("--sample-seed", type=int, default=42)
+    p.add_argument(
+        "--llm-batch-size",
+        type=int,
+        default=8,
+        help="Prompts per NuExtract generate call (left-padded). Default: 8.",
+    )
     p.add_argument("--log-level", default="INFO")
     return p.parse_args()
 
@@ -192,7 +288,13 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s :: %(message)s",
     )
 
-    df, report = backfill(Path(args.input))
+    df, report = backfill(
+        Path(args.input),
+        use_llm=args.use_llm,
+        sample_llm=args.sample_llm,
+        sample_seed=args.sample_seed,
+        llm_batch_size=args.llm_batch_size,
+    )
 
     snapshot_date = args.snapshot_date or datetime.utcnow().strftime("%Y-%m-%d")
     output_dir = Path(args.output_dir)

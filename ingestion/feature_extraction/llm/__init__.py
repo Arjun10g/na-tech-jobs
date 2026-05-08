@@ -1,6 +1,6 @@
-"""Tier 2/3 LLM-based extractors. Phase 1a ships only the stub interfaces;
-Phase 1b wires NuExtract; Phase 4 reserves Qwen for hard cases."""
+"""Tier 2 LLM-based extractors. Step 1b wires NuExtract-tiny; Phase 4
+reserves Qwen for hard cases."""
 
-from ingestion.feature_extraction.llm.nuextract import NuExtractStub
+from ingestion.feature_extraction.llm.nuextract import NuExtract
 
-__all__ = ["NuExtractStub"]
+__all__ = ["NuExtract"]

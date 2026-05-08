@@ -26,11 +26,16 @@ to https://huggingface.co/datasets/arjun10g/na-tech-jobs. Latest snapshot:
 ~12.3k jobs across 65 verified boards (US 95% / CA 5%).
 
 🚧 **Phase 2 — feature extraction cascade + curated layer + salary regressor.**
-Step 1a (done): regex-first extraction cascade for ~22 features
-(salary mining, security clearance, citizenship, sponsorship, equity, bonus,
-remote policy, contract type, posting quality, tech stack, …). Salary disclosure
-went from 0% → 49.8%. Per-field provenance in `extraction_meta`.
-Step 1b (next): NuExtract-tiny LLM Tier 2 fallback for fields regex misses.
+- Step 1a (done): regex-first extraction cascade for ~22 features
+  (salary mining, security clearance, citizenship, sponsorship, equity, bonus,
+  remote policy, contract type, posting quality, tech stack, …). Salary
+  disclosure went from 0% → 49.8%. Per-field provenance in `extraction_meta`.
+- Step 1b (done, dormant): NuExtract-tiny Tier 2 wrapper wired into the cascade
+  with batched MPS / CUDA generation. Disabled by default — re-enable by
+  populating `LLM_ELIGIBLE_FIELDS` in `ingestion/feature_extraction/cascade.py`
+  and running `uv run python -m scripts.backfill_features --use-llm`.
+- Step 2 (next): curated DuckDB layer + salary regressor (XGBoost + Optuna +
+  MLflow, model card to HF Hub).
 
 See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased plan.
 

@@ -7,6 +7,6 @@ provenance (source: regex/llm/structured, confidence, rule_id).
 See CLAUDE.md and MAINTENANCE.md for the design rationale.
 """
 
-from ingestion.feature_extraction.cascade import extract_features
+from ingestion.feature_extraction.cascade import extract_features, extract_features_batch
 
-__all__ = ["extract_features"]
+__all__ = ["extract_features", "extract_features_batch"]
