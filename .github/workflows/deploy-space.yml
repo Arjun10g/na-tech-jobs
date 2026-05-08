@@ -1,0 +1,103 @@
+name: Deploy to HF Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-space
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HF_USER: arjun10g
+      HF_SPACE: arjun10g/na-tech-jobs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Generate requirements.txt for Space
+        run: |
+          uv export \
+            --no-dev \
+            --no-hashes \
+            --no-emit-project \
+            --format requirements-txt \
+            > requirements.txt
+
+      - name: Clone Space repo
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git clone "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" space-repo
+
+      - name: Sync runtime files into Space
+        run: |
+          rsync -av --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.venv/' \
+            --exclude='.claude/' \
+            --exclude='.pre-commit-config.yaml' \
+            --exclude='.python-version' \
+            --exclude='.env' \
+            --exclude='.env.example' \
+            --exclude='uv.lock' \
+            --exclude='tests/' \
+            --exclude='notebooks/' \
+            --exclude='infra/' \
+            --exclude='mlruns/' \
+            --exclude='qdrant_storage/' \
+            --exclude='data/' \
+            --exclude='space-repo/' \
+            --exclude='CLAUDE.md' \
+            --exclude='README.md' \
+            ./ space-repo/
+
+      - name: Write Space-flavored README with Gradio frontmatter
+        run: |
+          cat > space-repo/README.md <<'EOF'
+          ---
+          title: na-tech-jobs
+          emoji: 🛰️
+          colorFrom: indigo
+          colorTo: blue
+          sdk: gradio
+          sdk_version: 4.44.0
+          app_file: app/main.py
+          pinned: false
+          license: mit
+          ---
+
+          # na-tech-jobs
+
+          Production ML platform for the North American senior tech-hiring market.
+
+          Source code & full project bible: https://github.com/Arjun10g/na-tech-jobs
+          EOF
+
+      - name: Commit and push to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        working-directory: space-repo
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No Space changes; skipping push."
+            exit 0
+          fi
+          git commit -m "deploy: sync from github.com/Arjun10g/na-tech-jobs@${GITHUB_SHA::7}"
+          git push "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD:main
