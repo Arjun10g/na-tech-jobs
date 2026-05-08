@@ -58,6 +58,12 @@ api = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
 ]
+# Lean runtime deps for the HF Space — only what salary inference + search need.
+# Avoids pulling torch (~2GB from the [ml] extras) onto the Space.
+space-runtime = [
+    "xgboost>=2.0",
+    "scikit-learn>=1.5",
+]
 
 [dependency-groups]
 dev = [

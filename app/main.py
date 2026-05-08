@@ -1,24 +1,31 @@
 """Gradio entrypoint for the na-tech-jobs Space.
 
-Phase 0: hello-world shell. Tabs (matcher, search, analytics, dashboard) get
-filled in across phases 3-8.
+Phase 3: salary prediction tab + curated-dataset search tab live. Matcher
+(resume → top-k jobs) lands in Phase 5 alongside bge-m3 hybrid retrieval;
+Analytics (NL→SQL) and Dashboard (drift) land in Phases 7-8.
 """
 
 from __future__ import annotations
 
 import gradio as gr
 
+from app.tabs import salary, search
+
 PROJECT_NAME = "na-tech-jobs"
 TAGLINE = "A production ML platform for the North American senior tech-hiring market."
-PHASE = "Phase 0 — scaffolding"
+PHASE = "Phase 3 — first deployable build"
 
 
 def status() -> str:
     return (
-        f"**{PROJECT_NAME}** is live.\n\n"
-        f"_{TAGLINE}_\n\n"
-        f"Current build: **{PHASE}**.\n\n"
-        f"The matcher, search, analytics, and dashboard tabs land in later phases."
+        f"**{PROJECT_NAME}** — {TAGLINE}\n\n"
+        f"_{PHASE}._ Salary prediction (XGBoost on tabular features) and "
+        "curated-dataset search are live below. The matcher + analytics + "
+        "drift dashboard tabs land in later phases.\n\n"
+        "**Links**\n"
+        "- Source: https://github.com/Arjun10g/na-tech-jobs\n"
+        "- Dataset: https://huggingface.co/datasets/arjun10g/na-tech-jobs\n"
+        "- Model: https://huggingface.co/arjun10g/na-tech-jobs-salary-v1\n"
     )
 
 
@@ -27,10 +34,10 @@ def build_app() -> gr.Blocks:
         gr.Markdown(f"# {PROJECT_NAME}\n{TAGLINE}")
         with gr.Tab("Status"):
             gr.Markdown(status())
+        salary.build_tab()
+        search.build_tab()
         with gr.Tab("Matcher"):
             gr.Markdown("_Phase 5 — paste a resume, get ranked job matches._")
-        with gr.Tab("Search"):
-            gr.Markdown("_Phase 5/7 — natural-language search over indexed postings._")
         with gr.Tab("Analytics"):
             gr.Markdown("_Phase 7 — NL→SQL over the curated dataset._")
         with gr.Tab("Dashboard"):

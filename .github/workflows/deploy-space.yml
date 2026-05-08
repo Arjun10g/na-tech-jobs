@@ -35,12 +35,13 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Generate requirements.txt for Space (Python 3.10 base)
+      - name: Generate requirements.txt for Space (Python 3.10 base, +space-runtime extras)
         run: |
           uv export \
             --no-dev \
             --no-hashes \
             --no-emit-project \
+            --extra space-runtime \
             --python 3.10 \
             --format requirements-txt \
             > requirements.txt
@@ -71,15 +72,27 @@ jobs:
             --exclude='data/' \
             --exclude='eda/' \
             --exclude='curated/' \
-            --exclude='ingestion/' \
             --exclude='monitoring/' \
             --exclude='scripts/' \
             --exclude='space-repo/' \
             --exclude='CLAUDE.md' \
             --exclude='MAINTENANCE.md' \
             --exclude='LITERATURE_REVIEW.md' \
+            --exclude='DATA_DICTIONARY.md' \
             --exclude='README.md' \
             ./ space-repo/
+
+      - name: Carry over runtime files needed by the Space
+        run: |
+          # Drop the parts of ingestion/ the Space doesn't need (extractors,
+          # orchestrator, push_to_hub, etc.) — keep only feature_extraction/
+          # and schema.py + normalize.py for parsing pasted job descriptions.
+          if [ -d space-repo/ingestion ]; then
+            cd space-repo/ingestion
+            ls | grep -vE '^(__init__\.py|schema\.py|normalize\.py|feature_extraction)$' \
+              | xargs -r rm -rf
+            cd "$GITHUB_WORKSPACE"
+          fi
 
       - name: Write Space-flavored README with Gradio frontmatter
         run: |
