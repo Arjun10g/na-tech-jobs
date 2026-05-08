@@ -25,7 +25,7 @@ def status() -> str:
 
 
 def build_app() -> gr.Blocks:
-    with gr.Blocks(title=PROJECT_NAME) as app:
+    with gr.Blocks(title=PROJECT_NAME, theme=gr.themes.Soft()) as app:
         gr.Markdown(f"# {PROJECT_NAME}\n{TAGLINE}")
         with gr.Tab("Status"):
             gr.Markdown(status())
@@ -42,8 +42,4 @@ def build_app() -> gr.Blocks:
 
 if __name__ == "__main__":
     server_port = int(os.environ.get("PORT", 7860))
-    build_app().launch(
-        server_name="0.0.0.0",
-        server_port=server_port,
-        theme=gr.themes.Soft(),
-    )
+    build_app().launch(server_name="0.0.0.0", server_port=server_port)
