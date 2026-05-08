@@ -111,6 +111,28 @@ Conventions:
 
 ## Resolved
 
+### 2026-05-08 — Phase 3: first deployable build (salary prediction + search live)
+
+- **Salary prediction tab** (`app/tabs/salary.py`): paste a JD (HTML or markdown);
+  the Phase 2 regex cascade extracts ~20 features; the Tier 5 XGBoost regressor
+  predicts USD/yr. Manual sliders override extracted fields. Range = point ± MAE.
+- **Search tab** (`app/tabs/search.py`): DuckDB-backed substring + filter search
+  over the curated parquet (Phase 5 swaps for bge-m3 hybrid).
+- **Plumbing**: `app/model_loader.py` lazy-fetches `salary_predictor.joblib`
+  from the HF Model repo + the curated parquet from the Dataset repo;
+  `app/feature_form.py` bridges JD→features dataframe with manual override merge.
+- **Lean Space deps**: new `[space-runtime]` extras = `xgboost + scikit-learn`
+  only; avoids torch (~2GB) on the Space build. Deploy workflow uses
+  `--extra space-runtime`; un-excludes `models/` and trims `ingestion/` to
+  `feature_extraction/` + `schema.py` + `normalize.py`.
+- **Predictor unwrapping**: train.py now persists the bare `.model_` (XGBRegressor)
+  rather than the `XGBoostOptuna` wrapper, so unpickle on the Space doesn't
+  require Optuna. Existing artifact patched in place + re-pushed (HF Model
+  commit `f7f411a`).
+- **Live prediction confirmed** via gradio_client API call to the Space:
+  sample senior MLE JD → $218,370/yr (range $189k–$247k).
+- 183 tests still passing. CI + Deploy workflows green on `f5f5d60` + `2d8dd38`.
+
 ### 2026-05-08 — Phase 2 Step 3: salary regressor (six-tier ladder)
 
 - **Six tiers from constant baseline to XGBoost+Optuna**, all evaluated on the
