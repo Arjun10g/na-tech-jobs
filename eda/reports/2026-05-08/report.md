@@ -163,7 +163,13 @@ Chi-square test: does **missingness in column X** depend on the value of column 
 
 **Recommendation**: train the regressor on `log10(target)`; report MAE in USD via back-transform. Symmetric residuals + better-behaved tails for tree-based models.
 
+We deliberately skip Shapiro-Wilk / Anderson-Darling. At n>5k those tests reject normality for any tiny deviation — we use the **Q-Q plot + skew/kurtosis effect sizes** below to settle the log-transform decision instead.
+
 ![06_target_distribution](./plots/06_target_distribution.png)
+
+Q-Q plots (raw vs log10):
+
+![10_target_qq](./plots/10_target_qq.png)
 
 Stratified by country / source / role / seniority:
 
@@ -214,7 +220,7 @@ Stratified by country / source / role / seniority:
 | requires_security_clearance |    1155 |   4991 |       213000 |      195000 |    -0.87 |  0.382173 |
 
 
-## 7. Multicollinearity
+## 7. Multicollinearity + multivariate
 
 VIF on continuous predictors (rule of thumb: VIF > 5 ⇒ moderate, > 10 ⇒ severe multicollinearity):
 
@@ -228,6 +234,12 @@ VIF on continuous predictors (rule of thumb: VIF > 5 ⇒ moderate, > 10 ⇒ seve
 ![08_correlation_heatmap](./plots/08_correlation_heatmap.png)
 
 Note: ordinal / nominal predictors must be encoded before VIF is meaningful for them. We'll redo this on the full one-hot design matrix in the modelling step.
+
+### Multivariate (PCA on the continuous block)
+
+Standardize → 2-D PCA on the well-populated continuous predictors, color by log10(target). With only 2-3 well-populated continuous columns the projection mostly recovers the original axes; the plot's main role is to confirm there's no obvious low-dimensional cluster structure being missed before we add the 1024-dim bge-m3 embedding in Phase 5 (where PCA is unambiguously load-bearing for variance reduction).
+
+![11_pca_continuous](./plots/11_pca_continuous.png)
 
 
 

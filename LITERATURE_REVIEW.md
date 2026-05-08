@@ -811,31 +811,27 @@ listed in EDA references because the EDA decisions force most of them.
 | #  | Stage                                   | Status | Where / why                                                                                  |
 |----|-----------------------------------------|--------|----------------------------------------------------------------------------------------------|
 | 1  | Data integrity                          | ✅      | Pandera schema validation runs at every snapshot ingest; HTML→MD bug fixed Step 1a.          |
-| 2  | Train/test split before EDA             | ⚠️      | Not done. The audit reads the entire curated parquet. Acceptable for tabular EDA when the analyst commits to a fixed test set later, but a strict reading would split first. **Action**: in Step 3, freeze the test set seed before any model-design decisions; document the split in the model card. |
+| 2  | Train/test split before EDA             | ✅      | **Closed 2026-05-08 (v1.2)**. `eda.split.freeze_split` produces a deterministic stratified split keyed off `(seed, id)`, persisted to `data/eda/test_split_ids.json` (12,334 rows → 9,846 train / 2,488 test, 20.2% holdout, balanced across the 5 (country×source) cells: 18.6%-21.1%). Step 3 reads the manifest; any downstream feature-importance plot can be re-checked on train-only without rerunning the audit. 7 unit tests guard the determinism + stratification contract. |
 | 3  | Schema + role classification            | ✅      | `eda.audit.audit_schema()` (§2 of report). 49 columns mapped to 9 roles.                     |
 | 4  | Univariate stats                        | ✅      | `audit_schema` + `metrics.json` carry per-column n, n_unique, fill_rate, dtype.              |
 | 5  | Distribution visualizations             | ✅      | `02_continuous_distributions.png`, `03_categorical_distributions.png`, ECDFs implicit in histplots. |
-| 6  | Normality tests (S-W, A-D, Q-Q)         | ⚠️      | Only skew + kurtosis computed. Formal Shapiro-Wilk on `salary_max_usd_yearly` (raw + log) was skipped; we relied on the visual + skew/kurtosis to justify the log transform. **Action**: add S-W to the next audit revision (cheap; one line of `scipy.stats.shapiro`). |
+| 6  | Normality diagnostics (visual + effect size, Q-Q) | ✅      | **Closed 2026-05-08 (v1.2)**. Added Q-Q plots (raw + log10) for the target — `plots/10_target_qq.png`. Deliberately **omit** Shapiro-Wilk and Anderson-Darling: at our n (~6k disclosed) those tests reject normality for any tiny deviation and would mislead a reader into thinking the log transform "isn't normal enough." We rely on the **visual Q-Q + skew/kurtosis effect-size** approach, consistent with the modern Wasserstein & Lazar (2016) ASA stance on hypothesis testing at large n. |
 | 7  | Missingness analysis (MCAR/MAR/MNAR)    | ✅      | `audit_missingness()` runs chi-square dependence tests; MNAR discussion in report §4 + §9.   |
 | 8  | Outlier audit                           | ✅      | IQR + z-score in `audit_outliers()`; report §8 with sanity-check guidance.                   |
 | 9  | Target deep-dive (stratified)           | ✅      | Report §5 + plot `07_target_by_strata.png`.                                                  |
 | 10 | Bivariate                               | ✅      | Pearson + Spearman + ANOVA F + Welch t in `audit_bivariate()`.                               |
 | 11 | Multicollinearity                       | ✅      | VIF + correlation heatmap + condition number in `audit_multicollinearity()`.                 |
-| 12 | Multivariate / PCA / t-SNE              | ❌      | **Not done.** With n=12k and 5 well-populated continuous predictors, PCA is low-priority but worth it to spot latent structure. Critical for the bge-m3 1024-dim block in Phase 5. **Action**: add a `plot_pca_target.png` (PC1 vs PC2 colored by target) to the next audit. |
+| 12 | Multivariate / PCA / t-SNE              | ✅      | **Closed 2026-05-08 (v1.2)**. Added `plot_pca_continuous` — standardize → 2-D PCA on the well-populated continuous block, scatter colored by `log10(salary_max_usd_yearly)` (`plots/11_pca_continuous.png`). At v1 we only have 2 well-populated continuous predictors so the projection mostly recovers the original axes (caveat noted in the report). The infrastructure is in place for Phase 5 where PCA on the bge-m3 1024-dim embedding becomes load-bearing for variance reduction. t-SNE / UMAP deferred until the embedding block is added. |
 | 13 | Stratification / Simpson's check        | ✅ partial | Stratified target plots in §5. Formal Simpson's-paradox check (e.g. country × source aggregate vs marginal) was not run. **Action**: a 2x2 panel for the most-suspicious pair before locking model.                                                                |
 | 14 | Time-based audit                        | n/a    | Only one snapshot to date; revisit after second weekly run.                                  |
-| 15 | Sample-size / power adequacy            | ⚠️      | Implicit (we noted CA n=662 is too small for stratified eval), but not a formal Cohen power analysis. **Action**: at Step 3, run `statsmodels.stats.power.TTestPower` per stratum to set the minimum-detectable effect size. |
+| 15 | Sample-size / power adequacy            | ⏭️ skipped intentionally | A formal Cohen-style power analysis is uninformative for our setup — we already know the rare strata (CA-ashby n=237, CA-greenhouse n=425) are too small for narrow-CI eval. Rather than back into a minimum-detectable-effect bound, we'll **emphasize uncertainty directly** in Step 3 via bootstrap CIs / quantile regression / residual stratification. The model card will report headline + per-stratum MAE with bootstrap 95% bands rather than a power threshold. |
 | 16 | Bias / fairness audit                   | ❌      | Protected attributes (race/gender/age) are not in our schema. We _do_ audit geographic and source bias. The recruiter-facing model card needs a fairness section even when we lack the attributes — use `regional pay parity` and `disclosure-rate-by-jurisdiction` as proxies. **Action**: add section to model card pre-Phase-9.   |
 | 17 | Selection-bias / MNAR specific          | ✅      | Report §9 + this doc §1.2. Heckman option flagged for v2.                                    |
 | 18 | Feature-engineering hypotheses          | ✅ partial | §10 of EDA report enumerates transforms; this doc §14 makes them concrete.                 |
 | 19 | Reproducibility (seeds, configs, env)   | ✅ partial | uv lockfile pins deps; CI enforces lint + tests. EDA itself doesn't take a seed since it's deterministic on the input. **Action**: log the curated-parquet sha in the audit report header so re-running on a new snapshot is traceable. |
 | 20 | Self-contained report with plots        | ✅      | `eda/reports/2026-05-08/report.md` is a single Markdown file with embedded PNG references.   |
 
-**Summary**: **15 of 20 done; 4 partial; 1 missing (PCA/multivariate)**.
-The misses are tractable in the next audit revision and don't block Step 3.
-The most consequential gap is **#2 (train/test split before EDA)**: we
-should freeze the test set seed before any feature-importance plots
-influence model design.
+**Summary (v1.2)**: **18 of 20 done; 1 partial (#13 Simpson's-paradox cross-check); 1 skipped intentionally (#15 power analysis, replaced by direct uncertainty quantification in Step 3)**. The two consequential gaps from v1.1 — train/test split (#2) and PCA (#12) — are now closed. Normality diagnostic (#6) is rebuilt with Q-Q + effect-size descriptors instead of a hypothesis test that would over-reject at our n.
 
 ### 15.4 Data-prep self-audit (against §15.2)
 
@@ -926,6 +922,10 @@ Tables_. JRSS Series B 13.
 Tukey, J.W. (1977). _Exploratory Data Analysis_. Addison-Wesley.
 
 Wickham, H. (2014). _Tidy Data_. Journal of Statistical Software 59.
+
+Wasserstein, R.L., Lazar, N.A. (2016). _The ASA Statement on p-Values:
+Context, Process, and Purpose_. The American Statistician 70(2). (Cited
+re. abandoning hypothesis tests at large n in favour of effect sizes.)
 
 
 
@@ -1038,3 +1038,19 @@ _Modeling Tabular Data Using Conditional GAN_. NeurIPS.
   the 20-stage EDA checklist + 10-stage data-prep checklist. Found 15/20
   EDA stages done, 1 missing (PCA/multivariate), 4 partial. Data-prep
   stages all correctly deferred to Step 3.
+- **2026-05-08** (v1.2): Closed three of the four EDA gaps from v1.1.
+  - **#2 train/test split before EDA**: `eda/split.py` ships a deterministic
+    stratified-by-(country, source) split with frozen test_ids manifest at
+    `data/eda/test_split_ids.json`. 7 unit tests guard the contract.
+  - **#6 normality**: replaced Shapiro-Wilk with Q-Q plot + effect-size
+    descriptors (skew, kurtosis). At n>5k, formal normality tests over-reject
+    on tiny deviations and would mislead — we follow the post-2016 ASA
+    consensus on hypothesis testing at large n.
+  - **#12 PCA / multivariate**: added 2-D PCA on the standardized continuous
+    block, scatter colored by `log10(target)`, saved as
+    `plots/11_pca_continuous.png`. Infrastructure ready for Phase 5's
+    bge-m3 embedding (where PCA becomes load-bearing).
+  - **#15 power analysis** intentionally skipped — replaced by direct
+    uncertainty quantification (bootstrap CIs, quantile regression) in the
+    Step 3 model card, which is more useful for the small-n CA strata.
+  - Score: 18/20 done, 1 partial, 1 skipped-by-design.

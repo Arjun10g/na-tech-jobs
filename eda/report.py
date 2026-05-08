@@ -135,7 +135,12 @@ def write_report(metrics: dict[str, Any], plots_dir: Path, out_path: Path) -> No
             f"- Kurtosis: raw {tgt['kurtosis']:+.2f} → log {tgt['log_kurtosis']:+.2f}\n\n"
             "**Recommendation**: train the regressor on `log10(target)`; report MAE in USD via "
             "back-transform. Symmetric residuals + better-behaved tails for tree-based models.\n\n"
+            "We deliberately skip Shapiro-Wilk / Anderson-Darling. At n>5k those tests reject "
+            "normality for any tiny deviation — we use the **Q-Q plot + skew/kurtosis effect "
+            "sizes** below to settle the log-transform decision instead.\n\n"
             + _img(plots_dir / "06_target_distribution.png", plots_dir)
+            + "\n\nQ-Q plots (raw vs log10):\n\n"
+            + _img(plots_dir / "10_target_qq.png", plots_dir)
             + "\n\nStratified by country / source / role / seniority:\n\n"
             + _img(plots_dir / "07_target_by_strata.png", plots_dir)
             + "\n"
@@ -169,9 +174,17 @@ def write_report(metrics: dict[str, Any], plots_dir: Path, out_path: Path) -> No
         f"`{multi['condition_number']}`. > 30 hints at multicollinearity; > 100 is severe.\n\n"
         + _img(plots_dir / "08_correlation_heatmap.png", plots_dir)
         + "\n\nNote: ordinal / nominal predictors must be encoded before VIF is meaningful for them. "
-        "We'll redo this on the full one-hot design matrix in the modelling step.\n"
+        "We'll redo this on the full one-hot design matrix in the modelling step.\n\n"
+        "### Multivariate (PCA on the continuous block)\n\n"
+        "Standardize → 2-D PCA on the well-populated continuous predictors, color by "
+        "log10(target). With only 2-3 well-populated continuous columns the projection mostly "
+        "recovers the original axes; the plot's main role is to confirm there's no obvious "
+        "low-dimensional cluster structure being missed before we add the 1024-dim bge-m3 "
+        "embedding in Phase 5 (where PCA is unambiguously load-bearing for variance reduction).\n\n"
+        + _img(plots_dir / "11_pca_continuous.png", plots_dir)
+        + "\n"
     )
-    multi_section = section("7. Multicollinearity", multi_body)
+    multi_section = section("7. Multicollinearity + multivariate", multi_body)
 
     # ── 8. Outliers ────────────────────────────────────────────────────────
     out_records = [{"predictor": k, **v} for k, v in out.items() if isinstance(v, dict)]

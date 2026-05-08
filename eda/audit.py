@@ -647,6 +647,83 @@ def audit_outliers(df: pd.DataFrame) -> dict[str, Any]:
     return out
 
 
+def plot_target_qq(df: pd.DataFrame, plots_dir: Path) -> Path:
+    """Q-Q plot for the target on raw + log scales.
+
+    We deliberately skip Shapiro-Wilk / Anderson-Darling — at our n (~6k
+    disclosed rows) those tests reject normality for any tiny deviation,
+    so they're uninformative as a transformation decision. The visual
+    Q-Q + skew/kurtosis effect sizes (already in metrics.json) settle the
+    log-transform choice cleanly.
+    """
+    from scipy import stats  # type: ignore
+
+    y = pd.to_numeric(df.get(TARGET_COL), errors="coerce").dropna()
+    if y.empty:
+        return None
+    y_pos = y[y > 0]
+    log_y = np.log10(y_pos)
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    stats.probplot(y_pos, dist="norm", plot=axes[0])
+    axes[0].set_title("Q-Q raw — strong departure in the upper tail")
+    axes[0].get_lines()[0].set_color("#4C72B0")
+    axes[0].get_lines()[0].set_markersize(3)
+    stats.probplot(log_y, dist="norm", plot=axes[1])
+    axes[1].set_title("Q-Q log10 — much closer to the reference line")
+    axes[1].get_lines()[0].set_color("#DD8452")
+    axes[1].get_lines()[0].set_markersize(3)
+    fig.tight_layout()
+    return _save_fig(fig, plots_dir, "10_target_qq")
+
+
+def plot_pca_continuous(df: pd.DataFrame, plots_dir: Path) -> Path:
+    """PCA on the well-populated continuous block, projected to 2-D and
+    colored by target. Closes the multivariate gap flagged in §15.3 of
+    the literature review.
+
+    Caveat: only 2-3 well-populated continuous predictors exist post-EDA
+    (min_years_experience and salary_min_usd_yearly), so the 2-D PCA
+    projection mostly recovers the original axes. The plot is still
+    useful as a sanity check before adding the 1024-dim bge-m3 embedding
+    in Phase 5 (where PCA is unambiguously load-bearing).
+    """
+    from sklearn.decomposition import PCA  # type: ignore
+
+    cols = [
+        c
+        for c in CONTINUOUS_PREDICTORS
+        if c in df.columns and c != TARGET_COL and df[c].notna().mean() >= 0.30
+    ]
+    if len(cols) < 2 or TARGET_COL not in df.columns:
+        return None
+    sub = df[cols + [TARGET_COL]].apply(pd.to_numeric, errors="coerce").dropna()
+    if len(sub) < 30:
+        return None
+
+    matrix = sub[cols].values
+    matrix_std = (matrix - matrix.mean(axis=0)) / matrix.std(axis=0)
+    pca = PCA(n_components=2)
+    pcs = pca.fit_transform(matrix_std)
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    sc = ax.scatter(
+        pcs[:, 0],
+        pcs[:, 1],
+        c=np.log10(sub[TARGET_COL].values),
+        cmap="viridis",
+        s=10,
+        alpha=0.6,
+    )
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.set_label("log10(salary_max_usd_yearly)")
+    ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.0%} var)")
+    ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.0%} var)")
+    ax.set_title(f"PCA of standardized continuous predictors\n({', '.join(cols)})")
+    fig.tight_layout()
+    return _save_fig(fig, plots_dir, "11_pca_continuous")
+
+
 def plot_target_outliers(df: pd.DataFrame, plots_dir: Path) -> Path:
     y = pd.to_numeric(df.get(TARGET_COL), errors="coerce").dropna()
     if y.empty:
@@ -693,6 +770,8 @@ def run_audit(input_path: Path, output_dir: Path) -> dict[str, Any]:
 
     outliers = audit_outliers(df)
     plot_target_outliers(df, plots_dir)
+    plot_target_qq(df, plots_dir)
+    plot_pca_continuous(df, plots_dir)
 
     metrics = {
         "schema": schema,
