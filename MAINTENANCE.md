@@ -73,7 +73,29 @@ Conventions:
   expected (the regex only labels obvious matches), but means downstream
   consumers should treat the extracted column as weak supervision, not
   ground truth.
-  - Target: **Phase 4** (per CLAUDE.md §10).
+  - **Resolved 2026-05-08** in Phase 4 with frozen-MiniLM + LR classifiers
+    (architecture pivot per LITERATURE_REVIEW.md §17, not DeBERTa-v3 + LoRA).
+    See Resolved section below for the full justification + metrics.
+
+- **DeBERTa-v3 + LoRA still not trained (architectural pivot).** CLAUDE.md
+  §7 originally locked DeBERTa-v3-base + LoRA for the title classifiers, but
+  Phase 4 pivoted to frozen sentence-transformer + logistic regression after
+  literature review (Peters et al 2019, SetFit). v1 ships the LR classifiers;
+  a v2 fine-tune comparison on a hand-labeled clean test set is logged below.
+  - Target: **v1.1** — once we have the 500-example hand-labeled test set
+    (CLAUDE.md §7), re-evaluate whether DeBERTa-v3 + LoRA delivers a real
+    improvement over the linear probe. If not, the locked decision in §7
+    should be amended in CLAUDE.md.
+  - Status: `open`.
+
+- **Skill extraction not yet batch-applied to the curated table.** NuExtract
+  on Apple MPS is ~1.7 sec/row → ~6 hours for 12,334 rows. The wrapper +
+  taxonomy ship in v1 (`models/skills/predict.py`, repo
+  `arjun10g/na-tech-jobs-skills-v1`); `extracted_skills_v1` in
+  `curated_enriched/jobs.parquet` is `[]` for every row.
+  - Target: **v1.1** — run NuExtract over the curated table on an HF Jobs
+    A10G GPU (~30 min, ~$0.50). Re-push enriched parquet with populated
+    `extracted_skills_v1`.
   - Status: `open`.
 
 - **Hardcoded FX rate (1 CAD = 0.73 USD).** Frozen in `ingestion/normalize.py`.
@@ -110,6 +132,64 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 4: title classifiers + skill extractor + curated enrichment
+
+What landed:
+- **Seniority classifier v1** (`arjun10g/na-tech-jobs-seniority-v1`):
+  frozen `sentence-transformers/all-MiniLM-L6-v2` embeddings + sklearn
+  multinomial `LogisticRegression` (lbfgs, L2, class_weight=balanced).
+  7 classes (`director / intern / junior / manager / principal / senior /
+  staff`); `mid` regex fallback dropped from training. **Val f1_macro
+  0.831** (95% CI [0.780, 0.870]) on a held-out 10% stratified slice;
+  5-fold CV f1_macro 0.838 with C=10.
+- **Role-family classifier v1** (`arjun10g/na-tech-jobs-role_family-v1`):
+  same architecture, 6 classes (`AS / DA / DE / DS / MLE / RS / SWE-ML`);
+  `Other` and `Manager` regex fallbacks dropped. **Val f1_macro 0.915**
+  (95% CI [0.830, 0.980]); 5-fold CV f1_macro 0.910 with C=10.
+- **Skills extractor v1** (`arjun10g/na-tech-jobs-skills-v1`): NuExtract
+  zero-shot wrapper + ~70-name canonical taxonomy with alias map.
+  Available for ad-hoc use; **batch application deferred to v1.1** (see
+  Open).
+- **Curated enrichment** (`curated/enrich.py`, dataset path
+  `curated_enriched/jobs.parquet`, commit `a83212b3`): all 12,334 active
+  jobs scored with versioned columns `seniority_label_v1`,
+  `seniority_confidence_v1`, `role_family_v1`, `role_family_confidence_v1`,
+  `extracted_skills_v1` (empty in v1), `predicted_salary_usd_v1`,
+  `prediction_model_version`. 100% coverage on the three scored fields.
+  Total runtime 5 min 14 s on Apple MPS.
+
+Architectural pivot (the part worth knowing):
+
+The original CLAUDE.md §7 locked DeBERTa-v3-base + LoRA for both title
+classifiers. Mid-phase that ran into a wall: training DeBERTa on Apple
+MPS clocked 25-30 sec/step at batch 8 → ~5 hours for 2 epochs over the
+6k-row training pool, with MPS allocator OOMs at higher batches. Pushing
+back on the locked choice triggered a literature review (LITERATURE_REVIEW.md
+§17, citing Peters et al 2019 "To Tune or Not to Tune?", Tunstall et al
+2022 SetFit, Joulin et al 2017 FastText, Reimers & Gurevych 2019 SBERT)
+and a pivot to **feature-based transfer**: frozen MiniLM embeddings
+(22 M params, 384-dim, mean-pooled + L2-normalized) + multinomial LR
+(C selected by 5-fold CV from {0.1, 1, 10}). End-to-end training time
+dropped from 5+ hours to <1 minute per classifier; both exceeded the
+§17.6 target of macro-F1 > 0.80.
+
+Operational note: enrichment originally segfaulted (exit 139) when the
+joblib-pickled salary predictor was loaded *after* the MiniLM encoder
+had touched MPS — a known PyTorch-MPS / joblib-threadpoolctl interaction
+on macOS. Resolved by reordering scorers so salary loads first, before
+any encoder is on the MPS allocator. Documented inline in
+`curated/enrich.py`.
+
+What's *not* done (logged in Open above):
+- Hand-labeled 500-example clean test set (CLAUDE.md §7) — v1 metrics
+  measure agreement with the regex labels on a held-out slice, not gold
+  truth. v1.1.
+- Skill batch enrichment — NuExtract over 12k rows on MPS is 6 hours;
+  v1.1 will run it on an HF Jobs A10G.
+- DeBERTa-v3 + LoRA comparison — only worth re-running once we have the
+  hand-labeled test set so we can decide if the heavier model earns its
+  cost.
 
 ### 2026-05-08 — Phase 3: first deployable build (salary prediction + search live)
 

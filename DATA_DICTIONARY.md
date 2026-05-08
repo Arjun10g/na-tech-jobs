@@ -189,8 +189,31 @@ revision lands in this file's changelog.
 
 ---
 
-## 12. Changelog
+## 12. Phase 4 enriched columns (`curated_enriched/jobs.parquet`)
 
+After `curated/enrich.py` runs the trained models over the curated table,
+the output parquet at `curated_enriched/jobs.parquet` carries the
+49 base columns plus 7 versioned prediction columns. Versioning lets
+older predictions remain readable when models retrain (CLAUDE.md §6).
+
+| Column | Type | Source model | Notes |
+|---|---|---|---|
+| `seniority_label_v1` | string | `arjun10g/na-tech-jobs-seniority-v1` | One of `intern / junior / senior / staff / principal / manager / director`. Trained on regex-confident labels (`"mid"` fallback dropped); val f1_macro 0.831. |
+| `seniority_confidence_v1` | float | same | softmax-max from the LR head; useful for filtering |
+| `role_family_v1` | string | `arjun10g/na-tech-jobs-role_family-v1` | One of `AS / DA / DE / DS / MLE / RS / SWE-ML`. Trained on regex-confident labels (`"Other"` and `"Manager"` dropped); val f1_macro 0.915. |
+| `role_family_confidence_v1` | float | same | softmax-max from the LR head |
+| `predicted_salary_usd_v1` | float | `arjun10g/na-tech-jobs-salary-v1` | XGBoost prediction, USD/year. Predicts on every row including non-disclosing ones — see Phase 2 model card for the bias framing. |
+| `extracted_skills_v1` | list[string] | `arjun10g/na-tech-jobs-skills-v1` | NuExtract zero-shot skills, normalized to the project taxonomy. **Empty list in v1** — batch enrichment deferred to v1.1 (NuExtract on MPS is 6 hours for 12k rows). |
+| `prediction_model_version` | string | — | Currently `"v1"`. Bumps when any of the four models retrains. |
+
+---
+
+## 13. Changelog
+
+- **2026-05-08 (v1, Phase 4 enrichment)**: added the 7 versioned
+  prediction columns above. Underlying models: frozen-MiniLM + LR
+  (seniority, role_family), XGBoost (salary), NuExtract zero-shot
+  (skills, batch deferred to v1.1).
 - **2026-05-08 (v1)**: First draft. Covers all 49 columns of the
   2026-05-08 curated snapshot. Inclusion decisions match
   `LITERATURE_REVIEW.md` §14 recommendations table.

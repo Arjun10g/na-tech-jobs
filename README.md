@@ -39,8 +39,8 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 0 — Scaffold | ✅ | Repo + CI + HF Space + Discord alerting |
 | 1 — Ingestion v1 | ✅ | 65 ATS handles → weekly parquet → HF Dataset, ~12.3k jobs |
 | 2 — Features + curated + salary regressor | ✅ | Regex cascade (49.8% disclosure mined) + LLM Tier 2 dormant + curated DuckDB layer + 6-tier ladder. **Tier 5 XGBoost test-MAE $29,091 / CV-MAE $30,533** |
-| **3 — First deployable** | ✅ **NEW** | Salary prediction + curated search live on the Space |
-| 4 — Multi-model + payload enrichment | next | DeBERTa seniority/role classifiers, NuExtract skills, payload enrichment |
+| 3 — First deployable | ✅ | Salary prediction + curated search live on the Space |
+| **4 — Multi-model + payload enrichment** | ✅ **NEW** | Frozen-MiniLM + LR seniority (val f1_macro 0.831) and role-family (0.915) classifiers, NuExtract skills wrapper, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
 | 5 — Retrieval stack | future | bge-m3 hybrid + ColBERT, Qdrant, resume matcher |
 | 6-9 — Eval, LLM, drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
@@ -70,6 +70,53 @@ that gap is for Phase 5's bge-m3 description embedding.
 Methodology: parsimonious-first ladder per [`LITERATURE_REVIEW.md` §16](LITERATURE_REVIEW.md)
 (Breiman 2001 two-cultures + Mincer 1974 + Shwartz-Ziv & Armon 2022 +
 Grinsztajn et al 2022). Encoding choices in §14 of the same doc.
+
+---
+
+## Title classifiers — frozen MiniLM + LR
+
+Phase 4 ships **seniority** and **role-family** classifiers that score every
+job in the curated table. Both use the same architecture: frozen
+`sentence-transformers/all-MiniLM-L6-v2` (22 M params, 384-dim) embeddings
++ multinomial logistic regression with L2, class-weight balanced, and C
+selected by 5-fold stratified CV from `{0.1, 1, 10}`.
+
+| Classifier | Classes | Train rows | Val f1_macro | 95% CI | Best C | Repo |
+|---|---|---|---|---|---|---|
+| seniority | 7 (intern…director) | 6,361 | **0.831** | [0.780, 0.870] | 10 | [`arjun10g/na-tech-jobs-seniority-v1`](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1) |
+| role_family | 6 (DS / DA / DE / MLE / RS / AS / SWE-ML) | 569 | **0.915** | [0.830, 0.980] | 10 | [`arjun10g/na-tech-jobs-role_family-v1`](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1) |
+
+Why a linear probe instead of CLAUDE.md §7's locked DeBERTa-v3 + LoRA?
+For short-text small-vocabulary classification with weakly supervised
+labels, a linear probe on a strong general-purpose embedder reaches the
+same operating point at ~100x less compute (Peters et al 2019; Tunstall
+et al 2022, SetFit; Joulin et al 2017, FastText). Full justification +
+recipe in [`LITERATURE_REVIEW.md` §17](LITERATURE_REVIEW.md). v1.1 will
+benchmark DeBERTa-v3 + LoRA against this baseline once a hand-labeled
+500-example test set lands.
+
+**Honest framing.** Training labels come from the regex extractors in
+`ingestion/normalize.py`; rows where the regex fell back to its default
+(`"mid"` for seniority, `"Other"` and `"Manager"` for role_family) are
+dropped from training. Eval metrics measure agreement with the regex on
+a held-out 10% slice — they don't measure agreement with hand-labeled
+gold. CLAUDE.md §7 logs the hand-labeled test set as the v1.1 task.
+
+**Skill extractor** (`arjun10g/na-tech-jobs-skills-v1`) is a NuExtract-tiny
+zero-shot wrapper + ~70-name canonical taxonomy. Available for ad-hoc use;
+batch application to the curated table is deferred to v1.1 (~6 hours on
+MPS, ~30 min on an A10G HF Job).
+
+**Curated enrichment.** `curated_enriched/jobs.parquet` on the HF
+Dataset has all 12,334 active jobs scored with versioned columns
+`seniority_label_v1`, `seniority_confidence_v1`, `role_family_v1`,
+`role_family_confidence_v1`, `predicted_salary_usd_v1`,
+`prediction_model_version`, plus `extracted_skills_v1` (empty list in
+v1; populated in v1.1). Re-running is a single command:
+
+```sh
+uv run python -m curated.enrich --skip-skills --push-to-hub
+```
 
 ---
 

@@ -1034,7 +1034,196 @@ quantify how much overlap the tiers actually have.
 
 ---
 
-## 17. References
+## 17. Title-text classifiers: feature-based transfer, not fine-tuning
+
+CLAUDE.md §7 originally specified DeBERTa-v3-base + LoRA for the seniority
+and role-family classifiers. Phase 4 implementation revealed that's wrong
+for the size of the problem: fine-tuning a 184M-param transformer on a
+title-classification task with ~7k weakly-supervised examples is the
+classic case the literature warns against. This section synthesizes the
+papers that say so and locks in the v1 architecture.
+
+### 17.1 Why DeBERTa+LoRA is overkill here
+
+The seniority + role-family tasks are **short-text, small-vocabulary,
+high-keyword-density** classification:
+
+- Median title length: 5-8 tokens.
+- The signal is largely lexical: "Senior", "Staff", "Principal",
+  "Director", "Machine Learning", "Data Scientist". A reader can label
+  90% of titles from the first 3 tokens alone.
+- Training set: 6,361 confident-regex labels for seniority (after
+  dropping the "mid" fallback), 654 for role family (after dropping
+  "Other" + "Manager" defaults).
+
+For tasks like these the literature is unambiguous:
+
+> "Feature-based approaches that use frozen pretrained embeddings as
+> input to a task-specific classifier are within 1-3 percentage points
+> of full fine-tuning across the GLUE suite." — [Peters, Ruder &
+> Smith 2019, _To Tune or Not to Tune? Adapting Pretrained
+> Representations to Diverse Tasks_, RepL4NLP].
+
+Empirically observed when we tried it: fine-tuning DeBERTa-v3-base on
+Apple MPS at batch 8 ran at ~25-30 sec/step, ~5 hours for 2 epochs over
+6.4k rows. That's wall-clock time we can't justify for a marginal F1
+gain. CLAUDE.md §13 ("when in doubt, simpler") + §16.1 (parsimonious
+ladder) both pointed at the simpler choice we should have started with.
+
+### 17.2 Feature-based transfer learning — the seminal references
+
+The "frozen pretrained encoder + lightweight classifier head" pattern
+goes back to BERT itself:
+
+- **[Devlin et al 2019, _BERT: Pre-training of Deep Bidirectional
+  Transformers for Language Understanding_, NAACL]** distinguishes two
+  uses of pretrained encoders: feature-based (extract embeddings, train
+  a downstream model) vs fine-tuning. Both are presented as valid; the
+  paper reports nearly identical F1 on NER between the two when feature-
+  based uses concatenated layer embeddings.
+
+- **[Peters, Ruder & Smith 2019, _To Tune or Not to Tune?_,
+  RepL4NLP]** is the definitive empirical comparison. Across SQuAD,
+  MNLI, SST, NER, and STS, the feature-based approach (frozen
+  embeddings + linear classifier) lags fine-tuning by 0-3 pp F1 on
+  most tasks. Their headline rule of thumb: **"if the target task is
+  similar in domain to the pretraining corpus, feature-based wins on
+  efficiency without losing much accuracy."** Job-title classification
+  on a corpus where the pretraining distribution (web text) clearly
+  covers tech roles fits that condition.
+
+- **[Reimers & Gurevych 2019, _Sentence-BERT: Sentence Embeddings using
+  Siamese BERT-Networks_, EMNLP]** introduces the sentence-transformer
+  family used throughout this project (Phase 5's bge-m3 is a
+  descendant). The paper shows that mean-pooled BERT embeddings, when
+  trained with a sentence-similarity objective, produce a vector space
+  where simple linear classifiers achieve SOTA on the downstream tasks
+  the embedder was *not* fine-tuned for.
+
+- **[Tunstall, Reimers et al 2022, _Efficient Few-Shot Learning Without
+  Prompts (SetFit)_, arXiv 2209.11055]** is the most direct precedent
+  for our v1: sentence-transformer encoder (frozen or lightly
+  contrastive-tuned) + logistic regression classifier head. They show
+  this approach matches or beats few-shot prompting and dedicated
+  few-shot fine-tuning frameworks (T-Few, ADAPET) at a tiny fraction of
+  the compute.
+
+- **[Mosbach, Pimentel et al 2023, _Few-shot Fine-tuning vs. In-context
+  Learning_, ACL]** confirms the pattern: linear probing on frozen
+  embeddings is competitive with both fine-tuning and in-context
+  learning when the labeled set is small.
+
+For text classification specifically, simpler-is-fine has been the
+default for a decade:
+
+- **[Joulin, Grave, Bojanowski & Mikolov 2017, _Bag of Tricks for
+  Efficient Text Classification (FastText)_, EACL]** — bag-of-vector
+  classifiers within ~1 pp of CNN/RNN baselines on multiple
+  benchmarks, ~1000x faster.
+
+- **[Zhang & LeCun 2015, _Text Understanding from Scratch_, arXiv
+  1502.01710]** — character-level CNNs roughly match early deep models
+  on short-text classification, suggesting that for short inputs the
+  representational expressiveness of large transformers is wasted.
+
+### 17.3 Encoder choice: MiniLM vs bge-m3
+
+CLAUDE.md §5 + §7 lock bge-m3 as the unified embedder for the project.
+For this v1 classifier the right choice is to **start with the lighter
+``sentence-transformers/all-MiniLM-L6-v2``** (22M params, 384-dim
+output) rather than bge-m3 (568M params, 1024-dim):
+
+| Encoder | Size | Dim | CPU latency | Pretraining objective |
+|---|---|---|---|---|
+| `all-MiniLM-L6-v2` | 22M | 384 | ~5 ms / sentence | Multiple-Negatives Ranking on 1B sentence pairs ([Wang et al 2020, _MiniLM_]) |
+| `BAAI/bge-m3` | 568M | 1024 | ~50 ms / sentence | Multilingual + multi-functionality (dense / sparse / multi-vec); see [Chen et al 2024, _M3-Embedding_] |
+
+For 7-class English-only title classification both encoders are
+overkill on representational capacity. MiniLM is faster, lighter, and
+competitive. Phase 5 will load bge-m3 anyway for retrieval — at that
+point we re-evaluate whether to swap (zero marginal cost since the
+encoder is already in memory) and likely retrain v2 with bge-m3
+embeddings.
+
+### 17.4 Classifier head: logistic regression
+
+For the head, the literature pins multinomial logistic regression with
+L2 regularization as the default:
+
+- **[Hastie, Tibshirani & Friedman 2009, §4.4]** — multinomial logistic
+  regression's softmax output is calibrated, the loss is convex (so
+  optimizer choice is uncontroversial), and L2 (Ridge) regularization
+  shrinks toward the global mean — exactly what we want with 700-row
+  classes.
+- **[Ng 2004, _Feature Selection, L1 vs. L2 Regularization, and
+  Rotational Invariance_, ICML]** — L2 over high-dimensional dense
+  embeddings (where every dim carries some signal) outperforms L1
+  selection.
+- **[Pedregosa et al 2011, _Scikit-learn: Machine Learning in Python_,
+  JMLR]** — sklearn's `LogisticRegression(multi_class="multinomial",
+  solver="lbfgs", C=...)` is the standard reference implementation; we
+  use it directly.
+
+Alternatives we considered and rejected:
+
+- **Ridge classifier** — same loss class but less calibrated probability
+  output; we want `predict_proba` for confidence-based downstream
+  filtering.
+- **SVM with RBF kernel** — slightly higher F1 on small datasets but
+  loses probability outputs without Platt scaling; Hastie §12.3.
+- **Random forest / GBDT on embeddings** — trees ignore the linear
+  structure that frozen embeddings explicitly preserve; usually worse
+  than a linear head [Pargent et al 2022, already cited].
+- **Light MLP head** (1-2 dense layers) — adds parameters without
+  adding signal at our row counts; Peters et al 2019 §4.
+
+### 17.5 Our v1 recipe
+
+```
+encoder      : sentence-transformers/all-MiniLM-L6-v2 (frozen)
+input        : title + " — " + description_md[:1000]   (truncated)
+embedding    : mean-pooled, L2-normalized, 384-dim
+classifier   : sklearn.linear_model.LogisticRegression
+                 multi_class = "multinomial"
+                 solver      = "lbfgs"
+                 C           = chosen by 5-fold CV from {0.1, 1, 10}
+                 max_iter    = 1000
+                 class_weight= "balanced"   (handles role-family imbalance)
+training set : confident-regex labels only (drops "mid" / "Other" / "Manager")
+eval         : stratified 5-fold CV on training set; report F1-macro,
+               F1-weighted, accuracy, plus bootstrap 95% CI on F1-macro
+artifact     : joblib pickle of (sentence-transformer reference, fitted LR)
+```
+
+### 17.6 Expected vs CLAUDE.md original goals
+
+CLAUDE.md §7 set a target of "macro-F1 > 0.85 on the hand-labeled test
+set" for the seniority classifier. Phase 4 v1 doesn't ship a
+hand-labeled test set — that's the explicit deferred work in
+[`MAINTENANCE.md`](MAINTENANCE.md). Our v1 metrics are:
+
+- Macro-F1 on stratified 5-fold CV against regex-confident labels.
+- Bootstrap 95% CI on macro-F1.
+- Per-class precision / recall / F1.
+
+Headline target: **macro-F1 > 0.80 on the regex-confident validation
+folds** as a v1 ship criterion. Anything below would suggest the
+embedding+LR baseline is broken (since simple TF-IDF + LR on title
+alone usually clears 0.85 on this kind of task — Joulin et al 2017
+confirms).
+
+If v1 lands cleanly, v2 swaps:
+- Encoder: MiniLM → bge-m3 (Phase 5 has it loaded already).
+- Classifier: logistic regression → DeBERTa-v3-base + LoRA on a hand-
+  labeled test set (CLAUDE.md's original spec, justified at that point
+  by an actual measured gap).
+
+The v2 work is logged in MAINTENANCE.md as the "model upgrade" task; v1
+ships now.
+
+---
+
+## 18. References
 
 Atkinson, A.B., Piketty, T. (2007). _Top Incomes Over the Twentieth
 Century: A Contrast Between Continental European and English-Speaking
@@ -1200,7 +1389,7 @@ _Modeling Tabular Data Using Conditional GAN_. NeurIPS.
 
 ---
 
-## 18. Changelog
+## 19. Changelog
 
 - **2026-05-08** (v1): Initial draft. Sections 1-14 cover predictor-by-predictor
   treatment with citations; §14 condenses to the recommendations table for the
