@@ -308,16 +308,22 @@ def run(
         report_path.write_text(json.dumps(report, indent=2))
         mlflow.log_artifact(str(report_path))
 
-        # Persist the winning predictor + auto-generated model card.
+        # Persist the winning predictor + auto-generated model card. Use the
+        # bare underlying estimator (``.model_`` on Tier 3/4/5 wrappers) so
+        # the Space's lean runtime doesn't drag in Optuna / statsmodels at
+        # inference unpickle time — only ``[space-runtime]`` extras
+        # (xgboost + sklearn) need to be on the Space.
         winning_result = next(r for r in results if r.name == report["winning_tier"])
-        winning_model = {
+        wrappers = {
             "tier0_constant": m0,
             "tier1_stratified_mean": m1,
             "tier2_mincer_ols": m2,
             "tier3_ridge_full": m3,
             "tier4_random_forest": m4,
             "tier5_xgboost_optuna": m5 if not skip_xgboost else None,
-        }[report["winning_tier"]]
+        }
+        wrapper = wrappers[report["winning_tier"]]
+        winning_model = getattr(wrapper, "model_", wrapper)
         winning_encoder = mincer_enc if report["winning_tier"] == "tier2_mincer_ols" else full_enc
         if report["winning_tier"] not in {"tier0_constant", "tier1_stratified_mean"}:
             predictor_path = output_dir / "salary_predictor.joblib"
