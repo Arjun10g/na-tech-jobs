@@ -1,0 +1,115 @@
+name: Weekly Ingest
+
+on:
+  schedule:
+    # Sundays 02:00 UTC, per CLAUDE.md §10 Phase 1.
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Limit to N companies (smoke testing)"
+        required: false
+        default: ""
+      source:
+        description: "Filter to one provider (greenhouse|lever|ashby)"
+        required: false
+        default: ""
+      push_to_hub:
+        description: "Push snapshot to HF Dataset"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --group dev
+
+      - name: Determine prior snapshot
+        id: prior
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          uv run python - <<'PY'
+          import os, pathlib
+          from huggingface_hub import HfApi, hf_hub_download
+          from huggingface_hub.errors import EntryNotFoundError
+          repo = os.environ.get("HF_DATASET_REPO", "arjun10g/na-tech-jobs")
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          path = ""
+          try:
+              path = hf_hub_download(
+                  repo_id=repo,
+                  filename="latest/jobs.parquet",
+                  repo_type="dataset",
+                  token=os.environ["HF_TOKEN"],
+              )
+          except (EntryNotFoundError, Exception) as exc:
+              print(f"no prior snapshot ({type(exc).__name__}); first run")
+          pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a").write(f"path={path}\n")
+          PY
+
+      - name: Run ingest
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          LOG_LEVEL: INFO
+        run: |
+          ARGS="--output-dir data --alert"
+          if [ -n "${{ steps.prior.outputs.path }}" ]; then
+            ARGS="$ARGS --prior-snapshot ${{ steps.prior.outputs.path }}"
+          fi
+          if [ -n "${{ inputs.limit }}" ]; then
+            ARGS="$ARGS --limit ${{ inputs.limit }}"
+          fi
+          if [ -n "${{ inputs.source }}" ]; then
+            ARGS="$ARGS --source ${{ inputs.source }}"
+          fi
+          if [ "${{ inputs.push_to_hub }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            ARGS="$ARGS --push-to-hub"
+          fi
+          uv run python -m ingestion.orchestrator $ARGS
+
+      - name: Upload snapshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-${{ github.run_id }}
+          path: data/
+          retention-days: 14
+
+      - name: Failure alert
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          uv run python -c "
+          from monitoring.alerts import alert_failure
+          alert_failure(
+              'Weekly ingest workflow failed',
+              'See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              run_id='${{ github.run_id }}',
+              event='${{ github.event_name }}',
+          )
+          "

@@ -3,6 +3,14 @@ name: Deploy to HF Space
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "rag/**"
+      - "models/**"
+      - "curated/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/deploy-space.yml"
   workflow_dispatch:
 
 concurrency:

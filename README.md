@@ -17,9 +17,15 @@ out-of-scope decisions — lives in [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
-🚧 **Phase 0 — scaffolding.** Repo bootstrapped, CI green, hello-world Gradio
-app deployable to Spaces. See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased
-plan.
+✅ **Phase 0 — scaffolding.** Repo bootstrapped, CI green, hello-world Gradio
+app live at https://arjun10g-na-tech-jobs.hf.space.
+
+🚧 **Phase 1 — ingestion v1.** Greenhouse + Lever + Ashby extractors,
+async-fan-out orchestrator, Pandera-validated parquet snapshots pushed weekly
+to https://huggingface.co/datasets/arjun10g/na-tech-jobs. First snapshot:
+~6.7k jobs across ~20 active boards.
+
+See [`CLAUDE.md` § 10](CLAUDE.md) for the full phased plan.
 
 ## Quickstart
 
@@ -34,6 +40,12 @@ uv run python -m app.main
 uv run ruff format --check .
 uv run ruff check .
 uv run pytest
+
+# run a smoke ingest (5 companies, no HF push)
+uv run python -m ingestion.orchestrator --output-dir data --limit 5
+
+# full weekly ingest with HF Dataset push (needs HF_TOKEN)
+uv run python -m ingestion.orchestrator --output-dir data --push-to-hub --alert
 ```
 
 Optional install groups:
