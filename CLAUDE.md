@@ -4,8 +4,9 @@
 
 ## Companion docs
 
-- [`MAINTENANCE.md`](MAINTENANCE.md) — running known-issues / debt log; resolved entries kept for project history.
+- [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md) — the data dictionary: every column in `data/curated/jobs.parquet`, what it is, fill rate, and whether it's a predictor. Pair with the literature review.
 - [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md) — predictor-by-predictor literature review with citations, the recommendations table for the salary regressor, and a self-audit of our EDA pipeline against the textbook ideal. Read before locking model design.
+- [`MAINTENANCE.md`](MAINTENANCE.md) — running known-issues / debt log; resolved entries kept for project history.
 - [`eda/reports/<date>/report.md`](eda/reports/) — auto-generated statistical audit of each curated snapshot, with embedded plots and a `metrics.json` of every numeric finding.
 
 ## Decision deltas
