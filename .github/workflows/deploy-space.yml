@@ -69,8 +69,15 @@ jobs:
             --exclude='mlruns/' \
             --exclude='qdrant_storage/' \
             --exclude='data/' \
+            --exclude='eda/' \
+            --exclude='curated/' \
+            --exclude='ingestion/' \
+            --exclude='monitoring/' \
+            --exclude='scripts/' \
             --exclude='space-repo/' \
             --exclude='CLAUDE.md' \
+            --exclude='MAINTENANCE.md' \
+            --exclude='LITERATURE_REVIEW.md' \
             --exclude='README.md' \
             ./ space-repo/
 
