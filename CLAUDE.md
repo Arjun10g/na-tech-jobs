@@ -2,6 +2,12 @@
 
 > Working name: `na-tech-jobs` (final name TBD by owner). This document is the project bible — every architectural decision, model choice, phase of work, and known tradeoff lives here. When in doubt, this file wins.
 
+## Companion docs
+
+- [`MAINTENANCE.md`](MAINTENANCE.md) — running known-issues / debt log; resolved entries kept for project history.
+- [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md) — predictor-by-predictor literature review with citations, the recommendations table for the salary regressor, and a self-audit of our EDA pipeline against the textbook ideal. Read before locking model design.
+- [`eda/reports/<date>/report.md`](eda/reports/) — auto-generated statistical audit of each curated snapshot, with embedded plots and a `metrics.json` of every numeric finding.
+
 ## Decision deltas
 
 Living deltas where reality diverged from the original plan. Newest first.

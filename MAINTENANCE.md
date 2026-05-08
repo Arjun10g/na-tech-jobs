@@ -111,6 +111,29 @@ Conventions:
 
 ## Resolved
 
+### 2026-05-08 — Phase 2 Steps 2 + 2.5: curated layer + statistical audit + literature review
+
+- **Curated layer** (`curated/build.py`, `curated/duckdb_views.sql`):
+  DuckDB stack across snapshots, computes first/last_seen_at + times_seen,
+  emits `curated/jobs.parquet` (active = in latest snapshot) and
+  `curated/jobs_history.parquet` (every job ever seen). 5 unit tests cover
+  single-snapshot, continuing-job, delisted-job, brand-new-job dedup. Pushed
+  to `arjun10g/na-tech-jobs` under `curated/`.
+- **Statistical EDA audit** (`eda/audit.py` + `eda/report.py`): single-command
+  `uv run python -m eda.audit` produces `data/eda/{report.md, metrics.json,
+  plots/*.png}`. Sections: schema + dtype classification (49 cols / 9 roles),
+  univariate distributions, missingness with chi-square MAR diagnostics,
+  target deep-dive (raw + log10 + stratified), bivariate (Pearson/Spearman +
+  ANOVA F + Welch t), multicollinearity (VIF + heatmap + condition number),
+  outlier audit, MNAR / omitted-variable / transformation discussion, modelling
+  implications. First audit snapshot committed at `eda/reports/2026-05-08/`.
+- **Literature review** ([LITERATURE_REVIEW.md](LITERATURE_REVIEW.md)): 17
+  sections / ~600 lines. Per-predictor treatment with citations (Tukey, HTF,
+  Kuhn & Johnson, Heckman, Pargent et al, Cerda & Varoquaux, Chen & Guestrin,
+  Mitchell et al model cards). §14 is the recommendations table for the Step 3
+  regressor. §15 added an ideal EDA pipeline + self-audit: 15 of 20 stages
+  done, 1 missing (PCA/multivariate), 4 partial.
+
 ### 2026-05-08 — Phase 2 Step 1b: NuExtract Tier 2 wired, dormant by default
 
 - **Real `NuExtract` wrapper landed** at `ingestion/feature_extraction/llm/nuextract.py`.
