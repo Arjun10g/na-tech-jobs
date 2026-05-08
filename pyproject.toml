@@ -45,6 +45,13 @@ rag = [
 monitoring = [
     "evidently>=0.4.30",
 ]
+eda = [
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "statsmodels>=0.14",
+    "missingno>=0.5",
+    "tabulate>=0.9",
+]
 api = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
