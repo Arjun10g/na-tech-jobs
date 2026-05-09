@@ -42,8 +42,9 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 3 — First deployable | ✅ | Salary prediction + curated search live on the Space |
 | 4 — Multi-model + payload enrichment | ✅ | Frozen-MiniLM + LR seniority (val f1_macro 0.812 reviewed-gold) and role-family (0.934) classifiers, regex skills layer, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
 | 5 — Retrieval stack | ✅ | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
-| **6a — Eval harness** | ✅ **NEW** | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
-| 7-9 — LLM, drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
+| 6a — Retrieval eval harness | ✅ | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
+| **7 — NL→SQL analytics** | ✅ **NEW** | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live on the Space, executed SQL always shown alongside results. **61 dedicated safety tests.** |
+| 8-9 — drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
 ---
 
@@ -194,6 +195,41 @@ adds the sparse leg + ColBERT MaxSim reranking, both of which CLAUDE.md
 generation before retrieval) lands as a UI toggle in Phase 6 follow-up.
 
 Reproduce: `uv run python -m eval.run_retrieval_eval --variants dense hybrid+rerank`.
+
+---
+
+## NL→SQL analytics — Phase 7
+
+Phase 7 ships an Analytics tab that turns plain-English questions into
+DuckDB SQL over the curated corpus. The mandatory safety layer
+(CLAUDE.md §11) is the senior-DS-signal piece — it's not optional:
+
+| Layer | What it does |
+|---|---|
+| **Pre-parse keyword filter** | Word-boundary scan rejects `INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/COPY/ATTACH/PRAGMA/INSTALL/LOAD/...` even before the parser runs. Catches keyword-in-string-literal injection conservatively (false positives accepted). |
+| **sqlglot parse** | Must yield exactly one statement; non-`Select`/`Subquery` rejected. |
+| **Table allowlist** | Only `jobs` is queryable; CTE-introduced names allowed via `WITH ...`. Disallowed tables in `JOIN` clauses are caught. |
+| **Column allowlist** | Per-table allowlist of ~40 columns (raw curated + Phase 4 versioned predictions). SELECT-list aliases and CTE columns are admitted; everything else rejected. |
+| **Row + time caps** | DuckDB `statement_timeout=5s` + outer `LIMIT 1000` wrap. |
+| **Always-show SQL** | The executed SQL is rendered alongside results so the user can verify what actually ran. |
+
+**LLM backends** (auto-selected): `AnthropicLLM` (Claude Sonnet, when
+`ANTHROPIC_API_KEY` is set) → `HFInferenceLLM` (Qwen2.5-7B-Instruct, when
+`HF_TOKEN` has Inference-Provider permission) → fail-loud. `MockLLM` is
+used in tests so CI never depends on a live API.
+
+**61 safety-layer tests** lock the contract: each denylisted keyword
+triggers a rejection, multi-statement payloads are caught, every legal
+SELECT shape (joins, CTEs, subqueries, aggregates with aliases used in
+ORDER BY/HAVING) passes, every illegal shape is rejected. Run:
+`uv run pytest tests/rag/test_nl2sql.py -q`.
+
+Reproduce a query end-to-end (set `ANTHROPIC_API_KEY` or an
+inference-permitted `HF_TOKEN`):
+
+```sh
+uv run python -m rag.nl2sql "median predicted salary by country for senior MLEs"
+```
 
 ---
 

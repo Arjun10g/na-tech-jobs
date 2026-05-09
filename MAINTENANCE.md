@@ -204,6 +204,58 @@ Conventions:
 
 ## Resolved
 
+### 2026-05-08 — Phase 7: NL→SQL analytics + safety layer
+
+What landed:
+- `rag/nl2sql.py`: end-to-end NL→DuckDB pipeline.
+  - **Schema allowlist**: `ALLOWED_TABLES = {"jobs"}` + per-table column
+    allowlist covering the curated columns + Phase 4 versioned
+    predictions.
+  - **`validate_sql()` safety layer** (mandatory per CLAUDE.md §8 + §11):
+    pre-parse keyword denylist (DROP/CREATE/ALTER/COPY/ATTACH/PRAGMA/
+    INSTALL/LOAD/SET/INSERT/UPDATE/DELETE/etc), single-statement
+    requirement, sqlglot Select-only check, table allowlist (CTE names
+    admitted), column allowlist (CTE-introduced names + SELECT-list
+    aliases admitted so `ORDER BY n` after `COUNT(*) AS n` works).
+  - **`execute_sql()`**: DuckDB with `statement_timeout=5s` + outer
+    `LIMIT 1000` wrap; mounts the curated parquet as the `jobs` view.
+  - **LLM client abstraction**: `LLMClient` ABC + `AnthropicLLM`,
+    `HFInferenceLLM`, `MockLLM`. `default_llm()` picks based on env.
+  - **`nl_to_sql()` orchestrator**: question → LLM (system + schema
+    description) → strip markdown fences → validate → execute →
+    `NL2SQLResult` (rows, sql, error, n_rows).
+- `app/tabs/analytics.py`: Gradio tab. Question textbox + "Ask" button +
+  status markdown + executed SQL panel + results dataframe + schema
+  reference panel. Six example questions. Wired into `app/main.py`
+  (status banner now Phase 7).
+- 61 safety tests in `tests/rag/test_nl2sql.py`: every denylisted
+  keyword (parametrized), multi-statement payload, INSERT/UPDATE/DELETE/
+  DROP/CREATE/ALTER/ATTACH/PRAGMA/COPY/INSTALL/LOAD, table escape via
+  JOIN, column escape, AND every legal SELECT shape (aggregates, CTEs,
+  subqueries, alias references in ORDER BY / HAVING). Plus end-to-end
+  with MockLLM (markdown-fence stripping, LLM failure mode, SQL
+  rejection mode, execution failure mode).
+
+End-to-end smoke test against `data/curated_enriched/jobs.parquet`:
+"Senior+staff MLEs by country" → returns US: 521 rows avg $204,717,
+CA: 51 rows avg $174,334. Pipeline tier-by-tier all green.
+
+Three operational notes:
+- HF_TOKEN currently scoped to dataset/model writes — needs an
+  Inference-Provider permission for the live LLM call to work. The
+  Analytics tab's other half (validation + execution) doesn't depend on
+  the LLM, so the safety layer + schema panel still render even when
+  the LLM is unconfigured.
+- Anthropic backend is preferred when `ANTHROPIC_API_KEY` is present;
+  the Phase 7 commit ships both backends so credential changes are an
+  env-var swap, not a code change.
+- The `keyword-in-string-literal` rejection is *intentionally
+  conservative* — a query like `WHERE company_name = 'DROP IT INC'`
+  fails. The trade-off is documented in
+  `test_string_literal_with_keyword_in_it_is_rejected_safely`. Real
+  users can phrase around it; the LLM is also primed not to emit such
+  literals.
+
 ### 2026-05-08 — Phase 6a: retrieval eval harness + first numbers
 
 What landed:

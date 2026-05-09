@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import gradio as gr
 
-from app.tabs import matcher, salary, search
+from app.tabs import analytics, matcher, salary, search
 
 PROJECT_NAME = "na-tech-jobs"
 TAGLINE = "A production ML platform for the North American senior tech-hiring market."
-PHASE = "Phase 5 — hybrid RAG matcher live (MiniLM dense, bge-m3 reindex queued)"
+PHASE = "Phase 7 — NL→SQL analytics live (matcher + analytics + salary + search)"
 
 
 def status() -> str:
@@ -39,8 +39,7 @@ def build_app() -> gr.Blocks:
         salary.build_tab()
         search.build_tab()
         matcher.build_tab()
-        with gr.Tab("Analytics"):
-            gr.Markdown("_Phase 7 — NL→SQL over the curated dataset._")
+        analytics.build_tab()
         with gr.Tab("Dashboard"):
             gr.Markdown("_Phase 8 — drift, market trends, pipeline health._")
     return app
