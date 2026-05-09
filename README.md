@@ -25,34 +25,61 @@ configs:
 
 # na-tech-jobs
 
-A production ML platform for the **North American senior tech-hiring market**.
+A working ML platform for the senior data-science / ML hiring market in
+the US and Canada. Weekly ingest from public ATS APIs, four trained
+models, hybrid retrieval, and an LLM analytics layer. Runs on a $9/month
+Hugging Face Space.
 
-> I built a production ML platform for the North American senior tech-hiring
-> market. It runs weekly ATS ingestion across Greenhouse, Lever, Ashby
-> (Workable / SmartRecruiters / Workday tenants in later phases), producing a
-> versioned dataset on the Hugging Face Hub. On top of that, a salary
-> regressor (XGBoost on tabular features), seniority + role-family classifiers
-> (frozen MiniLM + multinomial LR), and a regex skills layer enrich every job
-> with versioned predictions. A hybrid + late-interaction RAG layer (Qdrant
-> dense+sparse, optional cross-encoder rerank, ColBERT MaxSim queued for v1.1)
-> powers a Matcher tab; an LLM-backed NL→SQL analytics layer with a mandatory
-> sqlglot safety gate powers an Analytics tab. Drift detection runs weekly,
-> retraining runs monthly with a champion/challenger promotion rule. The whole
-> thing deploys to a $9 HF Pro Space with always-on enabled. **I built it
-> because I needed it for my own senior DS job search.**
-
----
+I started building this for my own job search. Each piece exists because
+I had a question I couldn't answer with LinkedIn or a spreadsheet: what's
+the actual salary distribution for senior MLE roles in Toronto, which
+companies are hiring at staff level right now, where do my skills line up
+with what's open. The ingestion cron, the salary regressor, the
+seniority and role-family classifiers, the matcher, the analytics tab —
+each one is the answer to one of those questions.
 
 ## 🔗 Live links
 
-- **Demo (Space)**: https://arjun10g-na-tech-jobs.hf.space
-- **Source (GitHub)**: https://github.com/Arjun10g/na-tech-jobs
-- **Dataset**: https://huggingface.co/datasets/arjun10g/na-tech-jobs — 12,334 active jobs, weekly snapshots, all under MIT
-- **Models on HF Hub**:
-  - Salary regressor: [`arjun10g/na-tech-jobs-salary-v1`](https://huggingface.co/arjun10g/na-tech-jobs-salary-v1)
-  - Seniority classifier: [`arjun10g/na-tech-jobs-seniority-v1`](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1)
-  - Role-family classifier: [`arjun10g/na-tech-jobs-role_family-v1`](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1)
-  - Skills extractor: [`arjun10g/na-tech-jobs-skills-v1`](https://huggingface.co/arjun10g/na-tech-jobs-skills-v1)
+| | |
+|---|---|
+| 🚀 **Demo Space** (dark theme, 5 tabs) | https://arjun10g-na-tech-jobs.hf.space |
+| 📦 **Source code** | https://github.com/Arjun10g/na-tech-jobs |
+| 📊 **Dataset** (12,334 active jobs, weekly) | https://huggingface.co/datasets/arjun10g/na-tech-jobs |
+| 🧠 **Models on the Hub** | [salary](https://huggingface.co/arjun10g/na-tech-jobs-salary-v1) · [seniority](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1) · [role_family](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1) · [skills](https://huggingface.co/arjun10g/na-tech-jobs-skills-v1) |
+
+## What's live on the Space
+
+Five tabs, all hitting real data and real model output.
+
+**Salary.** Paste a job description, the regex cascade extracts ~20
+features, an XGBoost regressor predicts the maximum salary in USD/year.
+Edit any extracted field and the prediction updates. Held-out test-MAE
+is $29,091, MAPE 14.7%.
+
+**Search.** Substring match on title and company, with country and
+role-family dropdowns. It's the boring tab — useful for spot-checking
+the corpus before reaching for the matcher.
+
+**Matcher.** Natural-language query (or a pasted resume blurb) goes
+through dense Qdrant retrieval, an optional cross-encoder rerank, and
+parent-chunk hydration. You get a ranked table of jobs with a clickable
+apply link, plus a short LLM-generated paragraph explaining which 1-2
+jobs best fit and why. Recall@10 against a labeled query set is 0.486
+with rerank, 0.363 without.
+
+**Analytics.** Plain-English question → Qwen2.5-7B writes DuckDB SQL →
+sqlglot-based safety layer rejects anything that isn't a read-only
+SELECT over the allowlist → DuckDB executes against the enriched
+parquet. The executed SQL is shown next to the result so you can verify
+what actually ran. 61 tests pin the safety contract; 4 out of 4 sample
+questions returned the right answer in a live smoke test.
+
+**Dashboard.** Pipeline health (last ingest, last enrichment, per-extractor
+counts), market-trend tables (salary by role × seniority, top employers,
+role-family share by country, top skills), and the latest drift report.
+Refresh button pulls the curated parquet from the Hub on first call.
+
+---
 
 ## Architecture
 
@@ -120,19 +147,36 @@ flowchart TB
     class DRIFT,RETRAIN,ALERT ops
 ```
 
-The whole thing is one flywheel: ingest → curate → enrich with versioned
-predictions → index → serve → measure drift → retrain → re-enrich.
-Detailed architecture in [`CLAUDE.md`](CLAUDE.md) §4 + §8.
+It's one loop. Ingest pulls from ATS APIs every Sunday, the curated
+layer dedups and validates, the enrichment script scores every job with
+the four models and writes a parquet with versioned columns
+(`predicted_salary_usd_v1`, `seniority_label_v1`, …). The chunker +
+embedder + Qdrant index serve the matcher; the same enriched parquet
+backs analytics and the dashboard. Drift detection runs every Monday;
+the retrain cron runs on the 1st of each month with a champion/challenger
+gate. Everything's versioned through git and HF Hub commits. Detailed
+architecture in [`CLAUDE.md` §4 + §8](CLAUDE.md).
 
-## Project documents
+---
 
-| File | What it contains |
-|---|---|
-| [`CLAUDE.md`](CLAUDE.md) | Project bible — architecture, locked decisions, phased plan, risks |
-| [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md) | Every column in `data/curated/jobs.parquet` — type, fill rate, predictor decision |
-| [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md) | ~1k-line predictor-by-predictor review with 50+ citations + ideal-EDA self-audit |
-| [`MAINTENANCE.md`](MAINTENANCE.md) | Running known-issues / debt log, resolved entries kept for project history |
-| [`eda/reports/<date>/report.md`](eda/reports/) | Statistical audit + 11 plots per snapshot |
+## Headline numbers
+
+| Surface | Metric | Value |
+|---|---|---|
+| **Dataset** | Active jobs in latest snapshot | 12,334 |
+| | Companies | 477 |
+| | Salary disclosure rate | 49.8% |
+| | Median disclosed / predicted salary (USD/yr) | $195k / $187.5k |
+| **Salary regressor** | Test-MAE (XGBoost + Optuna 50) | **$29,091** (95% CI $27k–$31k) |
+| | Test-MAPE | 14.7% |
+| | R² log-salary | 0.730 |
+| **Seniority classifier** | f1_macro vs reviewed gold | **0.812** (95% CI [0.73, 0.87]) |
+| **Role-family classifier** | f1_macro vs reviewed gold | **0.934** (95% CI [0.88, 0.98]) |
+| **Hybrid retrieval** | recall@10 (`hybrid+rerank`, 48 labeled queries) | **0.486** (vs `dense` 0.363) |
+| | MRR | 0.518 |
+| **NL→SQL** | Live smoke set accuracy | 4/4 |
+| | Safety-layer test count | 61 |
+| **CI** | Total tests passing | **371** |
 
 ---
 
@@ -140,17 +184,16 @@ Detailed architecture in [`CLAUDE.md`](CLAUDE.md) §4 + §8.
 
 | Phase | Status | Headline |
 |---|---|---|
-| 0 — Scaffold | ✅ | Repo + CI + HF Space + Discord alerting |
-| 1 — Ingestion v1 | ✅ | 65 ATS handles → weekly parquet → HF Dataset, ~12.3k jobs |
-| 2 — Features + curated + salary regressor | ✅ | Regex cascade (49.8% disclosure mined) + LLM Tier 2 dormant + curated DuckDB layer + 6-tier ladder. **Tier 5 XGBoost test-MAE $29,091 / CV-MAE $30,533** |
+| 0–1 — Scaffold + Ingestion | ✅ | Repo + CI + 65 ATS handles → weekly parquet → HF Dataset (~12.3k jobs) |
+| 2 — Salary regressor | ✅ | Six-tier ladder; **Tier 5 XGBoost test-MAE $29,091**, every CI cleanly excludes the previous |
 | 3 — First deployable | ✅ | Salary prediction + curated search live on the Space |
-| 4 — Multi-model + payload enrichment | ✅ | Frozen-MiniLM + LR seniority (val f1_macro 0.812 reviewed-gold) and role-family (0.934) classifiers, regex skills layer, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
-| 5 — Retrieval stack | ✅ | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
-| 6a — Retrieval eval harness | ✅ | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
-| 7 — NL→SQL analytics | ✅ | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live, executed SQL always shown. **61 dedicated safety tests.** |
-| 8a — Operational dashboard | ✅ | Evidently drift detection (PSI ≥ 0.20 → priority retrain), pipeline-health rollup, market-trend tabs (salary distribution by role × seniority, top companies, role-family share, top skills) live in the Dashboard tab. Live: 12,334 active jobs, 49.8% disclosure, top company Anduril (1,888 postings), CA is SWE-ML-heavy (29.6%) vs US's DE-heavy (29.9%). |
-| 8b — CI workflows | ✅ | `.github/workflows/drift.yml` (Mondays 03:00 UTC) + `.github/workflows/retrain.yml` (monthly 1st @ 04:00 UTC, matrix over classifiers, champion/challenger gate via `monitoring.champion_challenger`, conditional publish). |
-| **9 — polish** | ✅ **NEW** | Mermaid architecture diagram in README, HF dataset YAML frontmatter, elevator-pitch lead, model-card cross-links. **371 tests passing across 9 phases.** |
+| 4 — Multi-model + payload enrichment | ✅ | MiniLM + LR classifiers (seniority val 0.812, role_family 0.934), regex skills, all 12,334 jobs enriched with versioned predictions |
+| 5 — Retrieval stack | ✅ | Parent-child chunking (29k/120k) + Qdrant + dense (MiniLM) hybrid + cross-encoder rerank + Matcher tab; bge-m3 reindex queued v1.1 |
+| 6a — Retrieval eval | ✅ | 48-query labeled set; `hybrid+rerank` recall@10 = **0.486** (+34% vs dense) |
+| 7 — NL→SQL analytics | ✅ | Mandatory sqlglot safety layer + 61 tests; Anthropic / HF Inference / mock LLM backends; Analytics tab live |
+| 8a — Dashboard | ✅ | Drift detection (PSI) + pipeline-health + market-trend tabs |
+| 8b — CI workflows | ✅ | `drift.yml` (Mondays 03:00 UTC) + `retrain.yml` (monthly, champion/challenger gate) |
+| 9 — Polish | ✅ | Mermaid architecture diagram, dark UI, HF dataset YAML frontmatter, model-card cross-links |
 
 ---
 
@@ -169,195 +212,195 @@ generalization sanity check.
 | 4 Random Forest | $35,935 | $34k–$38k | $37,016 | $36k–$38k | 19.0% | 0.615 |
 | **5 XGBoost + Optuna(50)** | **$29,091** | **$27k–$31k** | **$30,533** | **$29k–$32k** | **14.7%** | **0.730** |
 
-Each tier's bootstrap CI cleanly excludes the previous tier's — the ladder is
-monotone with statistical evidence at every step. Test-MAE and CV-MAE agree
-within 5%: no overfitting, no lucky test draw. The
-[CLAUDE.md §10](CLAUDE.md) target of **MAE < $25k** is not yet hit; closing
-that gap is for Phase 5's bge-m3 description embedding.
+Each tier's 95% bootstrap CI sits cleanly above the previous tier's;
+test-MAE and CV-MAE agree to within 5%, so this isn't a lucky test
+draw or an overfit. The CLAUDE.md target of MAE under $25k isn't met
+yet — closing that gap is the bge-m3 description-embedding work in v1.1.
 
-Methodology: parsimonious-first ladder per [`LITERATURE_REVIEW.md` §16](LITERATURE_REVIEW.md)
-(Breiman 2001 two-cultures + Mincer 1974 + Shwartz-Ziv & Armon 2022 +
-Grinsztajn et al 2022). Encoding choices in §14 of the same doc.
+Methodology in [`LITERATURE_REVIEW.md` §16](LITERATURE_REVIEW.md):
+parsimonious-first ladder informed by Breiman's two-cultures essay,
+the Mincer earnings function, and the recent gradient-boosting-on-tabular
+results from Shwartz-Ziv & Armon (2022) and Grinsztajn et al (2022).
 
 ---
 
-## Title classifiers — frozen MiniLM + LR
+## Title classifiers — frozen MiniLM + multinomial LR
 
-Phase 4 ships **seniority** and **role-family** classifiers that score every
-job in the curated table. Both use the same architecture: frozen
-`sentence-transformers/all-MiniLM-L6-v2` (22 M params, 384-dim) embeddings
-+ multinomial logistic regression with L2, class-weight balanced, and C
-selected by 5-fold stratified CV from `{0.1, 1, 10}`.
-
-| Classifier | Classes | Train rows | Val f1_macro | 95% CI | Best C | Repo |
+| Classifier | Classes | Train rows | f1_macro vs regex | f1_macro vs **reviewed gold** | 95% CI | Repo |
 |---|---|---|---|---|---|---|
-| seniority | 7 (intern…director) | 6,361 | **0.831** | [0.780, 0.870] | 10 | [`arjun10g/na-tech-jobs-seniority-v1`](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1) |
-| role_family | 6 (DS / DA / DE / MLE / RS / AS / SWE-ML) | 569 | **0.915** | [0.830, 0.980] | 10 | [`arjun10g/na-tech-jobs-role_family-v1`](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1) |
+| seniority | 7 (intern…director) | 6,361 | 0.831 | **0.812** | [0.73, 0.87] | [`...-seniority-v1`](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1) |
+| role_family | 6 (DS / DA / DE / MLE / RS / AS / SWE-ML) | 569 | 0.915 | **0.934** | [0.88, 0.98] | [`...-role_family-v1`](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1) |
 
-Why a linear probe instead of CLAUDE.md §7's locked DeBERTa-v3 + LoRA?
-For short-text small-vocabulary classification with weakly supervised
-labels, a linear probe on a strong general-purpose embedder reaches the
-same operating point at ~100x less compute (Peters et al 2019; Tunstall
-et al 2022, SetFit; Joulin et al 2017, FastText). Full justification +
-recipe in [`LITERATURE_REVIEW.md` §17](LITERATURE_REVIEW.md). v1.1 will
-benchmark DeBERTa-v3 + LoRA against this baseline once a hand-labeled
-500-example test set lands.
+Architecture is frozen `sentence-transformers/all-MiniLM-L6-v2`
+(22M params, 384-dim) for embeddings, sklearn multinomial LR for the
+head. Class weights balanced. C picked by 5-fold stratified CV from
+`{0.1, 1, 10}`.
 
-**Honest framing.** Training labels come from the regex extractors in
-`ingestion/normalize.py`; rows where the regex fell back to its default
-(`"mid"` for seniority, `"Other"` and `"Manager"` for role_family) are
-dropped from training. The held-out F1 above measures agreement with the
-regex on a held-out 10% slice. To check the classifier didn't just
-memorize the regex, we also ran a **two-pass Claude-reviewed eval set**
-on a 230-row stratified sample per classifier (`eval/<classifier>_test.jsonl`):
-first-pass labelers produced LLM proposals; second-pass reviewers
-were shown those proposals plus the classifier's prediction and either
-accepted (1.7% override rate) or corrected on title-vs-label
-contradictions:
+Why a linear probe and not CLAUDE.md §7's locked DeBERTa-v3 + LoRA?
+For short-text classification on weakly-supervised labels, a linear
+probe over a strong general-purpose embedder lands at the same operating
+point for roughly two orders of magnitude less compute. The literature
+that motivated the call is in [`LITERATURE_REVIEW.md` §17](LITERATURE_REVIEW.md):
+Peters et al (2019) on when fine-tuning helps, Tunstall et al's SetFit,
+Joulin's FastText. v1.2 will run the DeBERTa-v3 comparison against the
+human-reviewed gold once that test set lands.
 
-| Classifier | vs regex (held-out) | vs reviewed gold (in-vocab) | 95% CI |
-|---|---|---|---|
-| seniority | 0.831 | **0.812** | [0.7347, 0.8729] |
-| role_family | 0.915 | **0.934** | [0.8761, 0.9765] |
+Training labels come from the regex extractors. Rows where the regex
+fell back to its default (`mid` / `Other` / `Manager`) are dropped from
+training because the fallback is too noisy. The "vs regex" column
+measures held-out agreement against the same regex labels; "vs reviewed
+gold" comes from a two-pass Claude-reviewed sample (230 rows per
+classifier, first-pass labelers then second-pass reviewers shown the
+proposal + the classifier's prediction). The reviewer override rate
+was 1.7%. Process notes are in [`MAINTENANCE.md`](MAINTENANCE.md).
 
-The "in-vocab" filter excludes the ~49% of sampled rows where the gold
-label is `"mid"` / `"Other"` / `"Manager"` — labels we drop from training.
-The classifier is a *specialist over the explicit labels*, not a
-general-purpose 9-way classifier; production callers should use
-confidence thresholds + the regex's default-label flag to decide when to
-trust the prediction. Two-pass Claude review is still a higher-quality
-proxy than full *human* review — that v1.2 task uses the same flow:
-`scripts.label_classifier --review` shows each row with the LLM proposal
-and lets the user accept / override.
+Skills are regex-first by default. `extracted_skills_v1` gets populated
+from [`ingestion/feature_extraction/regex/tech_stack.py`](ingestion/feature_extraction/regex/tech_stack.py)
+on every weekly ingest — about 70 canonical names, 64.7% coverage,
+runs in milliseconds, and (most importantly) is free. NuExtract
+(`arjun10g/na-tech-jobs-skills-v1`) is wired but opt-in via
+`--skills-mode=nuextract`. It runs during the monthly retrain so the
+enriched skills column gets the LLM-tier output once a month.
 
-**Skill extractor** is **regex-first** by default — `extracted_skills_v1`
-is populated from the existing `ingestion/feature_extraction/regex/tech_stack.py`
-column on every weekly ingest (free, deterministic, ~ms, 64.7% coverage
-across the 12,334 active jobs). The NuExtract LLM tier
-(`arjun10g/na-tech-jobs-skills-v1`) stays opt-in via
-`--skills-mode=nuextract` and runs during monthly retrains on an A10G
-(CLAUDE.md §10's cadence; logged in MAINTENANCE.md).
-
-**Curated enrichment.** `curated_enriched/jobs.parquet` on the HF
-Dataset has all 12,334 active jobs scored with versioned columns
-`seniority_label_v1`, `seniority_confidence_v1`, `role_family_v1`,
-`role_family_confidence_v1`, `predicted_salary_usd_v1`,
-`prediction_model_version`, plus `extracted_skills_v1` (regex-populated,
-64.7% coverage). Re-running is a single command:
+`curated_enriched/jobs.parquet` on the Hub has all 12,334 jobs scored
+with the versioned columns: `seniority_label_v1`,
+`seniority_confidence_v1`, `role_family_v1`, `role_family_confidence_v1`,
+`predicted_salary_usd_v1`, `extracted_skills_v1`,
+`prediction_model_version`.
 
 ```sh
-uv run python -m curated.enrich --push-to-hub
+uv run python -m curated.enrich --push-to-hub  # rebuild + push
 ```
 
 ---
 
-## Hybrid retrieval — Phase 5 matcher
-
-Phase 5 ships a parent-child chunked Qdrant index over the curated job
-corpus and a Matcher tab that does natural-language → ranked-jobs
-retrieval.
+## Hybrid retrieval (Phase 5)
 
 | | Detail |
 |---|---|
-| Chunking | parent-child `RecursiveCharacterTextSplitter` (~1024-token parents, ~256-token / 32-overlap children, hierarchical markdown separators) |
+| Chunking | parent-child `RecursiveCharacterTextSplitter` (~1024-tok parents, ~256-tok / 32-overlap children, hierarchical markdown separators) |
 | Volume indexed | **12,334 jobs → 29,311 parents → 120,004 children** |
-| Embedder (v1) | `sentence-transformers/all-MiniLM-L6-v2` (384-dim, dense-only). bge-m3 (1024-dim dense + sparse + ColBERT multivec) wired but reindex deferred to v1.1 — ~8 hr on Apple MPS or ~1 hr on an A10G HF Job. |
-| Vector store | Qdrant **local mode** at `data/qdrant/` (matches Spaces-Pro persistent-disk layout). Two collections: `jobs_dense` (named dense + sparse vectors, HNSW + int8 scalar quantization on dense) and `jobs_multivec` (ColBERT MaxSim, populated by v1.1). |
-| Pipeline | dense first-pass (top 100) → optional sparse search → RRF fusion (k=60) → optional cross-encoder rerank (`bge-reranker-v2-m3` or lite ms-marco MiniLM) → parent-chunk hydration → top-K. Filters on country, seniority_label_v1, role_family_v1, predicted_salary_usd_v1 range, posted_at. |
-| Index time | 14:05 wall-clock for the full MiniLM index on Apple MPS (142 chunks/sec). |
-| Latency | <1 s end-to-end on the matcher tab without the cross-encoder reranker; ~3-5 s with rerank enabled. |
+| Embedder (v1) | `sentence-transformers/all-MiniLM-L6-v2` (384-dim, dense-only). bge-m3 (1024-dim dense + sparse + ColBERT multivec) wired but reindex deferred to v1.1 |
+| Vector store | Qdrant local-mode at `data/qdrant/`. Two collections: `jobs_dense` (named dense + sparse vectors, HNSW + int8 scalar quantization) and `jobs_multivec` (ColBERT MaxSim, populated by v1.1) |
+| Pipeline | dense first-pass (top 100) → optional sparse search → RRF fusion (k=60) → optional cross-encoder rerank (`bge-reranker-v2-m3` or lite ms-marco MiniLM) → parent-chunk hydration → top-K → **LLM rationale** |
+| Index time | 14:05 wall-clock for the full MiniLM index on Apple MPS (142 chunks/sec) |
+| Latency | <1 s end-to-end without rerank; ~3-5 s with rerank enabled |
 
-The Matcher tab lives next to Salary Prediction and Search on the
-Gradio Space — paste a query or resume blurb, apply filters, get
-ranked jobs with predicted salary, classifier-derived seniority + role
-family, top skills, and a snippet from the contributing parent chunk.
+A note on how the index gets to the Space: `data/` is gitignored and
+excluded from the deploy. The Qdrant directory ships out-of-band as a
+gzipped tarball at `arjun10g/na-tech-jobs/qdrant/qdrant_minilm_v1.tar.gz`
+(~260 MB). On the Space's first matcher request,
+`app/retriever_loader.py` downloads and extracts it. Subsequent requests
+hit the local directory. The same pattern will work for the bge-m3
+tarball when it lands.
 
-To re-index locally:
+### Retrieval eval
 
-```sh
-# dev / fast iteration (MiniLM, ~14 min for 120k chunks)
-uv run python -m scripts.index_jobs --lite --force-recreate
-
-# production (bge-m3 dense + sparse, ~6-8 hr on MPS)
-uv run python -m scripts.index_jobs --force-recreate
-```
-
-### Retrieval eval — multi-variant comparison
-
-Eval set: **48 labeled queries** (30 title-as-query with `(normalized
-title, country)`-pool gold; 18 hand-crafted role+seniority queries with
-classifier-label-pool gold). Run on the live MiniLM index over 12,334
-jobs / 120k child chunks.
+48 labeled queries: 30 are sampled job titles with the gold pool defined
+by all jobs sharing the same normalized title and country. The other 18
+are hand-written role+seniority queries with a gold pool defined by the
+classifier-label slice on the enriched parquet.
 
 | Variant | recall@5 | recall@10 | recall@20 | MRR | nDCG@10 | latency |
 |---|---|---|---|---|---|---|
 | `dense` | 0.291 | 0.363 | 0.393 | 0.412 | 0.349 | 186 ms/q |
 | `hybrid+rerank` | **0.421** | **0.486** | **0.511** | **0.518** | **0.476** | 700 ms/q |
 
-Cross-encoder rerank (`cross-encoder/ms-marco-MiniLM-L-6-v2` lite) lifts
-recall@10 by **+34%** for ~4x the latency. The bge-m3 reindex (v1.1)
-adds the sparse leg + ColBERT MaxSim reranking, both of which CLAUDE.md
-§8 expects to push recall further. HyDE (Qwen2.5-7B hypothetical-doc
-generation before retrieval) lands as a UI toggle in Phase 6 follow-up.
+The cross-encoder is the biggest single quality lever in v1: +34% on
+recall@10 for ~4x the latency. Hybrid here is identical to dense
+because the MiniLM index has no sparse vectors yet; the bge-m3 reindex
+adds the sparse leg, and the same indexer already wires the ColBERT
+multi-vec collection. HyDE (a Qwen-generated hypothetical doc fed to
+retrieval before the real query) is queued behind the bge-m3 reindex
+since both rows benefit from sparse search.
 
-Reproduce: `uv run python -m eval.run_retrieval_eval --variants dense hybrid+rerank`.
+```sh
+# dev / fast iteration (MiniLM, ~14 min for 120k chunks)
+uv run python -m scripts.index_jobs --lite --force-recreate
+# production (bge-m3 dense + sparse, ~6-8 hr on MPS or ~30 min on A10G HF Job)
+uv run python -m scripts.index_jobs --force-recreate
+
+# eval
+uv run python -m eval.run_retrieval_eval --variants dense hybrid+rerank
+```
 
 ---
 
-## NL→SQL analytics — Phase 7
+## NL→SQL analytics
 
-Phase 7 ships an Analytics tab that turns plain-English questions into
-DuckDB SQL over the curated corpus. The mandatory safety layer
-(CLAUDE.md §11) is the senior-DS-signal piece — it's not optional:
+The Analytics tab takes a plain-English question and runs DuckDB SQL
+over the enriched parquet. The interesting work isn't in the LLM call,
+it's in the safety layer that sits between the LLM and the database.
+Six things have to pass before the SQL is allowed to run:
 
 | Layer | What it does |
 |---|---|
-| **Pre-parse keyword filter** | Word-boundary scan rejects `INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/COPY/ATTACH/PRAGMA/INSTALL/LOAD/...` even before the parser runs. Catches keyword-in-string-literal injection conservatively (false positives accepted). |
-| **sqlglot parse** | Must yield exactly one statement; non-`Select`/`Subquery` rejected. |
-| **Table allowlist** | Only `jobs` is queryable; CTE-introduced names allowed via `WITH ...`. Disallowed tables in `JOIN` clauses are caught. |
-| **Column allowlist** | Per-table allowlist of ~40 columns (raw curated + Phase 4 versioned predictions). SELECT-list aliases and CTE columns are admitted; everything else rejected. |
-| **Row + time caps** | DuckDB `statement_timeout=5s` + outer `LIMIT 1000` wrap. |
-| **Always-show SQL** | The executed SQL is rendered alongside results so the user can verify what actually ran. |
+| **Pre-parse keyword filter** | Word-boundary scan rejects `INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/COPY/ATTACH/PRAGMA/INSTALL/LOAD/...` *before* the parser runs. Conservatively catches keyword-in-string-literal attacks. |
+| **sqlglot single-statement parse** | One statement, must be a `Select` or `Subquery`. |
+| **Table allowlist** | Only `jobs` is queryable; CTE-introduced names admitted. Disallowed tables in `JOIN` clauses caught. |
+| **Column allowlist** | Per-table allowlist of ~40 columns. SELECT-list aliases and CTE columns admitted; everything else rejected. |
+| **Row + time caps** | DuckDB `statement_timeout=5s` + outer `LIMIT 1000`. |
+| **Always-show SQL** | Executed SQL rendered alongside results so the user verifies what actually ran. |
 
-**LLM backends** (auto-selected): `AnthropicLLM` (Claude Sonnet, when
-`ANTHROPIC_API_KEY` is set) → `HFInferenceLLM` (Qwen2.5-7B-Instruct, when
-`HF_TOKEN` has Inference-Provider permission) → fail-loud. `MockLLM` is
-used in tests so CI never depends on a live API.
+`default_llm()` picks a backend automatically: Anthropic Claude when
+`ANTHROPIC_API_KEY` is set, HF Inference / Qwen2.5-7B-Instruct when only
+`HF_TOKEN` is, fail-loud otherwise. Tests use a `MockLLM` so CI never
+depends on a live API.
 
-**61 safety-layer tests** lock the contract: each denylisted keyword
-triggers a rejection, multi-statement payloads are caught, every legal
-SELECT shape (joins, CTEs, subqueries, aggregates with aliases used in
-ORDER BY/HAVING) passes, every illegal shape is rejected. Run:
-`uv run pytest tests/rag/test_nl2sql.py -q`.
+61 safety-layer tests lock the contract. Every denylisted keyword is
+parametrized, multi-statement payloads get caught, every legal SELECT
+shape (joins, CTEs, subqueries, aggregates with aliases used in ORDER
+BY / HAVING) passes, every illegal shape gets rejected.
 
-Reproduce a query end-to-end (set `ANTHROPIC_API_KEY` or an
-inference-permitted `HF_TOKEN`):
+Live smoke test against Qwen2.5-7B over the enriched parquet:
+
+| Question | Result |
+|---|---|
+| _How many senior MLE jobs are open in the US right now?_ | **276** |
+| _Top 5 companies hiring data scientists, ranked by number of postings._ | Pinterest 65, Robinhood 61, Databricks 47, Whatnot 45, Jane Street 23 |
+| _Average disclosed salary range for staff-level roles?_ | **$212,863** USD/yr |
+| _Distribution of role_family_v1 across countries._ | 12 rows; US dominates DE (3,492), DA (2,918), SWE-ML (2,473); CA SWE-ML-heavy at 29.6% |
 
 ```sh
 uv run python -m rag.nl2sql "median predicted salary by country for senior MLEs"
 ```
 
-**Live numbers from a 4-query smoke test** (Qwen2.5-7B via HF Inference,
-against the live `data/curated_enriched/jobs.parquet`):
+---
 
-| Question | LLM-generated SQL | Result |
+## Operations
+
+Four crons close the loop. Discord webhooks fire on success and failure.
+
+| Cron | When | What |
 |---|---|---|
-| _How many senior MLE jobs are open in the US right now?_ | `WHERE seniority_label_v1='senior' AND role_family_v1='MLE' AND country='US'` | **276** |
-| _Top 5 companies hiring data scientists, ranked by number of postings._ | `GROUP BY company_name ORDER BY n DESC LIMIT 5` | Pinterest 65, Robinhood 61, Databricks 47, Whatnot 45, Jane Street 23 |
-| _What is the average disclosed salary range for staff-level roles?_ | `AVG((salary_min + salary_max)/2) WHERE salary_disclosed` | **$212,863** USD/yr |
-| _Distribution of role_family_v1 across countries._ | `GROUP BY country, role_family_v1` | 12 rows; US dominates RS (1,238), DA (2,918), DE (3,492); CA at 28, 122, ... respectively |
+| [`ingest.yml`](.github/workflows/ingest.yml) | Sun 02:00 UTC | Pull every ATS, dedup vs prior, validate, push snapshot to dataset repo, Discord alert on failure |
+| [`drift.yml`](.github/workflows/drift.yml) | Mon 03:00 UTC | Compare latest vs 4-week-old snapshot via Evidently. PSI ≥ 0.20 on any tracked feature → priority breach → flag retrain + Discord alert |
+| [`retrain.yml`](.github/workflows/retrain.yml) | 1st @ 04:00 UTC | Matrix over `[seniority, role_family]`. Pull champion `training_summary.json`, train challenger, apply [`monitoring.champion_challenger`](monitoring/champion_challenger.py) gate (primary +1%, no secondary > -2%), publish only if promoted |
+| [`deploy-space.yml`](.github/workflows/deploy-space.yml) | On push to main | Generate `requirements.txt` from `space-runtime` extras, rsync runtime files, push to HF Space, write Gradio frontmatter README |
 
-LLM accuracy on this set: 4/4. (One earlier query asked for "senior MLE
-median salary" and the LLM filtered on `principal` — small sample, so
-treat the smoke test as illustrative rather than benchmarked. A proper
-NL→SQL eval set lands in v1.1 alongside the drift dashboard.)
+The dashboard tab pulls whichever drift report is newest in
+`reports/drift/<date>.html` and renders it inline next to a metrics
+card. The pipeline-health card reads `ingestion_stats.json` from the
+latest snapshot directory.
+
+---
+
+## Project documents
+
+| File | What it contains |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Project bible — architecture, locked decisions, phased plan, risks |
+| [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md) | Every column in `data/curated/jobs.parquet` — type, fill rate, predictor decision |
+| [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md) | ~1k-line predictor-by-predictor review with 50+ citations + ideal-EDA self-audit |
+| [`MAINTENANCE.md`](MAINTENANCE.md) | Running known-issues / debt log, resolved entries kept for project history |
+| [`eda/reports/<date>/report.md`](eda/) | Statistical audit + 11 plots per snapshot |
 
 ---
 
 ## Quickstart
 
 ```sh
-# install Python 3.11 + dev deps
+# clone + install Python 3.11 + dev deps
 uv sync --group dev
 
 # run the local Gradio app (loads model + curated parquet from HF Hub)
@@ -368,22 +411,25 @@ uv run ruff format --check .
 uv run ruff check .
 uv run pytest
 
-# run a smoke ingest (5 companies, no HF push)
+# smoke ingest (5 companies, no HF push)
 uv run python -m ingestion.orchestrator --output-dir data --limit 5
 
 # full ingest with HF Dataset push (needs HF_TOKEN)
 uv run python -m ingestion.orchestrator --output-dir data --push-to-hub --alert
 
-# rebuild the curated layer from snapshots
+# rebuild curated layer + enriched predictions
 uv run python -m curated.build --push-to-hub
+uv run python -m curated.enrich --push-to-hub
 
-# regenerate the EDA audit
-uv run python -m eda.audit  # writes data/eda/{report.md, metrics.json, plots/}
+# retrain a classifier + push to HF Hub
+uv sync --extra ml --group dev
+uv run python -m models.seniority.train  # ~30 sec on CPU
+uv run python -m scripts.publish_classifier seniority --create
 
-# retrain the salary regressor + push to HF Hub
-uv sync --extra ml --extra eda --group dev
-uv run python -m models.salary.train  # ~15-20 min on CPU
-uv run python -m scripts.publish_salary_model
+# rebuild Qdrant index + publish tarball
+uv run python -m scripts.index_jobs --lite --force-recreate
+tar -cf - -C data qdrant | gzip -9 > qdrant_minilm_v1.tar.gz
+uv run python -m scripts.publish_qdrant_index --tarball qdrant_minilm_v1.tar.gz
 ```
 
 ### Optional dependency groups
@@ -392,34 +438,36 @@ uv run python -m scripts.publish_salary_model
 |---|---|---|
 | `ml` | Training stack (torch, transformers, xgboost, mlflow, sklearn, optuna) | `uv sync --extra ml` |
 | `eda` | matplotlib, seaborn, statsmodels, missingno, tabulate | `uv sync --extra eda` |
-| `space-runtime` | Lean inference deps for the Space (xgboost + sklearn, no torch) | `uv sync --extra space-runtime` |
-| `rag` | Vector store, chunking, NL→SQL, PDF parsing (Phase 5) | `uv sync --extra rag` |
-| `monitoring` | Evidently for drift reports (Phase 8) | `uv sync --extra monitoring` |
+| `space-runtime` | Lean runtime deps for the Space (xgboost, sklearn, sqlglot, qdrant-client, sentence-transformers, anthropic) | `uv sync --extra space-runtime` |
+| `rag` | Vector store, chunking, NL→SQL, PDF parsing | `uv sync --extra rag` |
+| `monitoring` | Evidently for drift reports | `uv sync --extra monitoring` |
 | `api` | FastAPI for programmatic endpoints | `uv sync --extra api` |
 
 ## Repository layout
 
-See [`CLAUDE.md` § 9](CLAUDE.md) for the full layout.
+```
+app/                  Gradio front end (5 tabs, dark-themed)
+ingestion/            ATS extractors + feature cascade
+curated/              DuckDB layer over weekly snapshots, model-prediction enrichment
+eda/                  Statistical audit + train/test split
+models/               salary, seniority, role_family, skills, embeddings
+rag/                  Chunking, embedder, qdrant client, reranker, pipeline, nl2sql
+monitoring/           Drift, pipeline health, market trends, champion/challenger gate
+eval/                 Retrieval-eval harness, labeled queries, classifier test sets
+scripts/              Publish models/dataset, build query sets, index_jobs, etc.
+.github/workflows/    CI, weekly ingest, drift cron, monthly retrain, deploy-space
+tests/                371 tests across all surfaces
+```
 
-```
-app/                  Gradio front end (Phase 0+, expanded in Phase 3)
-ingestion/            ATS extractors + feature cascade (Phase 1+)
-  feature_extraction/ Regex Tier 1 + NuExtract Tier 2 (dormant) cascade
-curated/              DuckDB layer over weekly snapshots
-eda/                  Statistical audit + train/test split (Step 2.5)
-models/salary/        Six-tier regressor ladder (Step 3)
-monitoring/           Discord alerting; Evidently drift (Phase 8)
-scripts/              Probe handles, backfill features, publish models
-.github/workflows/    CI, weekly ingest cron, Space deploy
-```
+Full structure in [`CLAUDE.md` §9](CLAUDE.md).
 
 ## Secrets
 
-See [`infra/secrets.md`](infra/secrets.md). Copy `.env.example` to `.env` and
-fill in `HF_TOKEN` + `DISCORD_WEBHOOK_URL` for operations that touch the Hub
-or alert on pipeline failure.
+Copy `.env.example` to `.env` and fill in `HF_TOKEN` (with both Hub-write
+**and** Inference-Provider permissions if you want the Analytics tab to use
+Qwen) and `DISCORD_WEBHOOK_URL` for ingest/drift/retrain alerts.
+`ANTHROPIC_API_KEY` is optional and preferred over HF Inference when set.
 
 ## License
 
-MIT. Models and datasets are licensed individually — see their respective
-model and dataset cards.
+MIT. Models and datasets licensed individually — see their respective cards.
