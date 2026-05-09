@@ -9,11 +9,23 @@ Per CLAUDE.md §10 Phase 8 this is the single-page operational view:
   disclosure rate, median predicted vs. disclosed salary.
 - **Market-trend tables**: salary distribution by role × seniority, top
   companies by posting count, role-family share by country, top skills.
-- **Drift report**: HTML iframe of the latest weekly Evidently report
-  if one exists, plus the slim metrics card. Empty-state when no drift
+- **Drift report**: HTML view of the latest weekly Evidently report if
+  one exists, plus the slim metrics card. Empty-state when no drift
   report has run yet.
 
-Everything is computed on demand — no caching.
+Loading model:
+
+- All trend computations resolve the curated parquet via
+  ``app.model_loader.get_curated_path()`` — same helper the salary +
+  search tabs use, which downloads from the HF Dataset on first call
+  and caches in the HF Hub cache. This is the only path that works on
+  the live Space (where ``data/`` is excluded from the deploy rsync).
+- The DataFrame is loaded once and cached at module level. Refreshes
+  re-read from disk so a freshly pulled parquet (e.g. after a Hub
+  re-pull) shows up immediately.
+- Build-time renders use placeholder content so app startup doesn't
+  block on the parquet pull. The first interactive view of any
+  market-trend tab triggers the load.
 """
 
 from __future__ import annotations
@@ -29,6 +41,10 @@ logger = logging.getLogger("app.tabs.dashboard")
 
 DRIFT_REPORTS_DIR = Path("reports/drift")
 
+# Module-level cache so we read the parquet at most once per tab
+# session. Refresh button forces a re-read.
+_df_cache: pd.DataFrame | None = None
+
 
 def _format_money(v: float | int | None) -> str:
     if v is None:
@@ -39,11 +55,59 @@ def _format_money(v: float | int | None) -> str:
         return "—"
 
 
-def _headline_card() -> str:
-    from monitoring.market_trends import headline_numbers
+# ── Curated parquet loader ────────────────────────────────────────────────
 
+
+def _load_df(force: bool = False) -> pd.DataFrame | None:
+    """Pull the curated parquet from HF Hub (cached), read into a
+    DataFrame, cache the result. Returns None if neither the local file
+    nor the Hub copy is reachable — callers handle that by rendering an
+    empty state."""
+    global _df_cache
+    if _df_cache is not None and not force:
+        return _df_cache
+
+    # Try local enriched parquet first (for dev / running tests).
+    for local in (
+        Path("data/curated_enriched/jobs.parquet"),
+        Path("data/curated/jobs.parquet"),
+    ):
+        if local.exists():
+            try:
+                _df_cache = pd.read_parquet(local)
+                logger.info("dashboard: loaded local %s (%d rows)", local, len(_df_cache))
+                return _df_cache
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("dashboard: failed reading %s :: %s", local, exc)
+
+    # Fall back to the HF Hub copy (works on the live Space).
     try:
-        h = headline_numbers()
+        from app.model_loader import get_curated_path
+
+        path = get_curated_path()
+        _df_cache = pd.read_parquet(path)
+        logger.info("dashboard: loaded HF Hub curated (%d rows)", len(_df_cache))
+        return _df_cache
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("dashboard: curated parquet unavailable :: %s", exc)
+        return None
+
+
+def _empty_state(reason: str) -> str:
+    return f"_Dashboard data not yet loaded — {reason}._"
+
+
+# ── Helpers (each tolerant of missing parquet) ────────────────────────────
+
+
+def _headline_card() -> str:
+    df = _load_df()
+    if df is None:
+        return _empty_state("curated parquet unavailable")
+    try:
+        from monitoring.market_trends import headline_numbers
+
+        h = headline_numbers(df)
     except Exception as exc:  # noqa: BLE001
         return f"_Could not compute headline numbers: {exc}_"
     return (
@@ -69,27 +133,39 @@ def _pipeline_health_card() -> str:
 
 
 def _salary_distribution_df() -> pd.DataFrame:
+    df = _load_df()
+    if df is None:
+        return pd.DataFrame()
     from monitoring.market_trends import salary_distribution
 
-    return salary_distribution().round({"p25": 0, "median": 0, "p75": 0})
+    return salary_distribution(df).round({"p25": 0, "median": 0, "p75": 0})
 
 
 def _top_companies_df() -> pd.DataFrame:
+    df = _load_df()
+    if df is None:
+        return pd.DataFrame()
     from monitoring.market_trends import top_companies
 
-    return top_companies(limit=20)
+    return top_companies(df, limit=20)
 
 
 def _role_family_share_df() -> pd.DataFrame:
+    df = _load_df()
+    if df is None:
+        return pd.DataFrame()
     from monitoring.market_trends import role_family_share
 
-    return role_family_share()
+    return role_family_share(df)
 
 
 def _top_skills_df() -> pd.DataFrame:
+    df = _load_df()
+    if df is None:
+        return pd.DataFrame()
     from monitoring.market_trends import top_skills
 
-    return top_skills(limit=30)
+    return top_skills(df, limit=30)
 
 
 # ── Drift ────────────────────────────────────────────────────────────────
@@ -145,8 +221,6 @@ def _drift_summary_md(metrics: dict | None) -> str:
 def _drift_html(html_path: str | None) -> str:
     if not html_path or not Path(html_path).exists():
         return ""
-    # Embed inline rather than via iframe so Gradio's sandbox doesn't
-    # block it.
     try:
         return Path(html_path).read_text()
     except OSError as exc:
@@ -158,6 +232,8 @@ def _drift_html(html_path: str | None) -> str:
 
 
 def _refresh_all():
+    """Force a re-read of the curated parquet, recompute everything."""
+    _load_df(force=True)
     headline = _headline_card()
     health = _pipeline_health_card()
     sal = _salary_distribution_df()
@@ -173,35 +249,46 @@ def _refresh_all():
 # ── Gradio tab ────────────────────────────────────────────────────────────
 
 
+_INITIAL_HEADLINE = (
+    "### Corpus snapshot\n\n_Click **Refresh** to load market-trend "
+    "tables from the latest curated parquet on the HF Dataset Hub._"
+)
+_INITIAL_HEALTH = "_Click Refresh to load pipeline health._"
+
+
 def build_tab() -> gr.Tab:
+    """Build the Dashboard tab with deferred loads — startup is fast,
+    first refresh pulls the parquet from HF Hub (~25 MB, cached after).
+    """
     with gr.Tab("Dashboard") as tab:
         gr.Markdown(
             "## Operational dashboard\n\n"
             "Pipeline health, market trends, and drift detection over the "
-            "curated corpus. Refresh to recompute everything from the "
-            "latest parquet on disk."
+            "curated corpus. Click **Refresh** to load — first call pulls "
+            "the curated parquet from the HF Dataset Hub (~25 MB, cached). "
+            "Subsequent refreshes re-read the local cache instantly."
         )
         refresh_btn = gr.Button("Refresh", variant="primary")
 
         with gr.Row():
-            headline_md = gr.Markdown(_headline_card())
-            health_md = gr.Markdown(_pipeline_health_card())
+            headline_md = gr.Markdown(_INITIAL_HEADLINE)
+            health_md = gr.Markdown(_INITIAL_HEALTH)
 
         with gr.Tab("Salary distribution"):
             gr.Markdown("Median + p25/p75 of model-predicted salary, sliced by role × seniority.")
-            sal_df = gr.Dataframe(value=_salary_distribution_df(), interactive=False, wrap=True)
+            sal_df = gr.Dataframe(value=pd.DataFrame(), interactive=False, wrap=True)
         with gr.Tab("Top companies"):
             gr.Markdown("Top 20 companies by open posting count, with role-family breakdown.")
-            companies_df = gr.Dataframe(value=_top_companies_df(), interactive=False, wrap=True)
+            companies_df = gr.Dataframe(value=pd.DataFrame(), interactive=False, wrap=True)
         with gr.Tab("Role family by country"):
             gr.Markdown("Per-country share of each role family.")
-            role_df = gr.Dataframe(value=_role_family_share_df(), interactive=False, wrap=True)
+            role_df = gr.Dataframe(value=pd.DataFrame(), interactive=False, wrap=True)
         with gr.Tab("Top skills"):
             gr.Markdown("Most-mentioned canonical skills (regex `tech_stack` extractor).")
-            skills_df = gr.Dataframe(value=_top_skills_df(), interactive=False, wrap=True)
+            skills_df = gr.Dataframe(value=pd.DataFrame(), interactive=False, wrap=True)
 
         gr.Markdown("---")
-        # Drift section
+        # Drift section — these read tiny JSON / HTML, fine to render eagerly.
         drift_html_path, drift_metrics = _latest_drift()
         drift_md = gr.Markdown(_drift_summary_md(drift_metrics))
         drift_html_box = gr.HTML(value=_drift_html(drift_html_path))
