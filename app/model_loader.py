@@ -17,9 +17,11 @@ DEFAULT_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "arjun10g/na-tech-jobs-sala
 DEFAULT_DATASET_REPO = os.environ.get("HF_DATASET_REPO", "arjun10g/na-tech-jobs")
 PREDICTOR_FILENAME = "salary_predictor.joblib"
 CURATED_FILENAME = "curated/jobs.parquet"
+ENRICHED_FILENAME = "curated_enriched/jobs.parquet"
 
 _predictor_singleton = None
 _curated_path_singleton: Path | None = None
+_enriched_path_singleton: Path | None = None
 
 
 def get_predictor():
@@ -61,3 +63,34 @@ def get_curated_path() -> Path:
     _curated_path_singleton = Path(path)
     logger.info("curated parquet at %s", _curated_path_singleton)
     return _curated_path_singleton
+
+
+def get_enriched_curated_path() -> Path:
+    """Return the local path of the **enriched** curated parquet — the one
+    with the Phase 4 versioned predictions (``predicted_salary_usd_v1``,
+    ``role_family_v1``, ``seniority_label_v1``, ``extracted_skills_v1``).
+
+    Falls back to the bare curated parquet if the enriched copy isn't on
+    the dataset repo for some reason — callers that genuinely need the
+    versioned columns will fail at query time with a clear error message.
+    """
+    global _enriched_path_singleton
+    if _enriched_path_singleton is not None:
+        return _enriched_path_singleton
+    from huggingface_hub import hf_hub_download
+    from huggingface_hub.errors import EntryNotFoundError
+
+    logger.info("downloading enriched curated parquet from %s", DEFAULT_DATASET_REPO)
+    try:
+        path = hf_hub_download(
+            repo_id=DEFAULT_DATASET_REPO,
+            filename=ENRICHED_FILENAME,
+            repo_type="dataset",
+            token=os.environ.get("HF_TOKEN"),
+        )
+    except EntryNotFoundError:
+        logger.warning("enriched parquet missing on the dataset repo; falling back to bare curated")
+        return get_curated_path()
+    _enriched_path_singleton = Path(path)
+    logger.info("enriched curated parquet at %s", _enriched_path_singleton)
+    return _enriched_path_singleton

@@ -80,11 +80,13 @@ def _load_df(force: bool = False) -> pd.DataFrame | None:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("dashboard: failed reading %s :: %s", local, exc)
 
-    # Fall back to the HF Hub copy (works on the live Space).
+    # Fall back to the HF Hub copy (works on the live Space). Prefer the
+    # enriched parquet so role_family_v1 / seniority_label_v1 /
+    # predicted_salary_usd_v1 are all available to the trend helpers.
     try:
-        from app.model_loader import get_curated_path
+        from app.model_loader import get_enriched_curated_path
 
-        path = get_curated_path()
+        path = get_enriched_curated_path()
         _df_cache = pd.read_parquet(path)
         logger.info("dashboard: loaded HF Hub curated (%d rows)", len(_df_cache))
         return _df_cache

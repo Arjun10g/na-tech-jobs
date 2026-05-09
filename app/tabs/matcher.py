@@ -1,9 +1,14 @@
-"""Matcher tab — natural-language query → ranked job matches.
+"""Matcher tab — natural-language query → ranked job matches + LLM rationale.
 
-Phase 5 v0: text query (or pasted resume). The flow goes
-query → MiniLM-dense first-pass over Qdrant → optional rerank →
-parent-chunk hydration → top-K jobs displayed with predicted salary +
-seniority + role family + a contributing snippet.
+Per CLAUDE.md §8 the final stage of the retrieval pipeline summarizes the
+top results with an LLM. This tab does:
+
+  query → MiniLM-dense first-pass over Qdrant → optional rerank →
+  parent-chunk hydration → top-K jobs → **LLM rationale** →
+  results table + a 3-4 sentence "why these match" block.
+
+The LLM call is best-effort: if the LLM isn't configured, the table
+still renders, just without the rationale.
 
 PDF resume parsing lands in v1.1 once the matcher is validated end-to-end.
 """
@@ -31,6 +36,59 @@ def _format_money(v) -> str:
         return "—"
 
 
+# ── LLM rationale ────────────────────────────────────────────────────────
+
+
+_RATIONALE_SYSTEM = (
+    "You are a candid career advisor helping a senior data scientist evaluate "
+    "open job postings against their query. Be specific, concise, and honest. "
+    "Cite jobs by company + a 1-3 word handle. Do not fabricate details."
+)
+
+
+def _build_rationale_prompt(query: str, rows: list[dict]) -> str:
+    """Compact prompt — title, company, location, salary, role+seniority,
+    plus a short snippet for the top 8 jobs."""
+    lines = [f'User query: "{query.strip()}"\n', "Top matches retrieved:"]
+    for i, r in enumerate(rows[:8], start=1):
+        snippet = (r.get("snippet") or "").replace("`", "")
+        if len(snippet) > 220:
+            snippet = snippet[:217] + "…"
+        lines.append(
+            f"{i}. **{r['title']}** at {r['company']} — "
+            f"{r['location']} ({r['country']}) — "
+            f"{r['seniority']}/{r['role_family']}, "
+            f"predicted {r['predicted_salary_usd_yr']}/yr. "
+            f"_{snippet}_"
+        )
+    lines.append(
+        "\nIn 3-4 sentences: which 1-2 jobs best match the query and why? "
+        "Note any pattern across the set (salary range, geography, common "
+        "skill mismatches). If a few jobs look like obvious mismatches, say so."
+    )
+    return "\n".join(lines)
+
+
+def _llm_rationale(query: str, rows: list[dict]) -> str | None:
+    """Generate the rationale via whichever LLM backend is configured.
+    Returns None on any failure — caller renders without it."""
+    try:
+        from rag.nl2sql import default_llm
+
+        llm = default_llm()
+    except RuntimeError:
+        return None
+    try:
+        prompt = _build_rationale_prompt(query, rows)
+        return llm.generate(_RATIONALE_SYSTEM, prompt, max_tokens=400).strip()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("matcher rationale failed :: %s", exc)
+        return None
+
+
+# ── Search handler ───────────────────────────────────────────────────────
+
+
 def _run_query(
     query: str,
     country: str,
@@ -39,9 +97,10 @@ def _run_query(
     min_salary: int | None,
     max_salary: int | None,
     top_k: int,
-) -> tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str, str]:
+    """Returns (results_df, status_md, rationale_md)."""
     if not query or not query.strip():
-        return pd.DataFrame(), "Type a query (or paste a resume blurb) to begin."
+        return pd.DataFrame(), "Type a query (or paste a resume blurb) to begin.", ""
 
     try:
         from app.retriever_loader import get_retriever
@@ -54,7 +113,7 @@ def _run_query(
             "On a fresh checkout run:\n"
             "    uv run python -m scripts.index_jobs --lite"
         )
-        return pd.DataFrame(), msg
+        return pd.DataFrame(), msg, ""
 
     qfilter = build_filter(
         countries=[country] if country != "(any)" else None,
@@ -69,10 +128,10 @@ def _run_query(
         results = retriever.search(query.strip(), qdrant_filter=qfilter)
     except Exception as exc:  # noqa: BLE001
         logger.exception("retrieval failed")
-        return pd.DataFrame(), f"Retrieval error: {exc}"
+        return pd.DataFrame(), f"Retrieval error: {exc}", ""
 
     if not results:
-        return pd.DataFrame(), "No matches. Try broadening the filters."
+        return pd.DataFrame(), "No matches. Try broadening the filters.", ""
 
     rows: list[dict] = []
     for r in results:
@@ -97,7 +156,11 @@ def _run_query(
         )
     df = pd.DataFrame(rows)
     summary = f"**{len(rows)} match(es)** for `{query.strip()[:120]}`."
-    return df, summary
+
+    rationale = _llm_rationale(query, rows)
+    rationale_md = f"### Why these jobs\n\n{rationale}" if rationale else ""
+
+    return df, summary, rationale_md
 
 
 # ── Gradio tab ────────────────────────────────────────────────────────────
@@ -138,11 +201,10 @@ EXAMPLES = [
 def build_tab() -> gr.Tab:
     with gr.Tab("Matcher") as tab:
         gr.Markdown(
-            "## Matcher\n\n"
-            "Hybrid retrieval over the indexed job corpus. Type a natural-language "
-            "query (or paste a resume blurb) and apply filters as needed.\n\n"
-            "_Default backend: MiniLM dense. Cross-encoder rerank is OFF by default "
-            "to keep latency under 1 s; enable via `RAG_RERANKER=lite` env var._"
+            "## Matcher\n"
+            "Type a natural-language query — or paste a resume blurb — and the "
+            "hybrid-retrieval pipeline ranks the corpus by semantic match, then an "
+            "LLM summarizes why these jobs fit. Filters apply at retrieval time."
         )
         with gr.Row():
             with gr.Column(scale=2):
@@ -161,15 +223,12 @@ def build_tab() -> gr.Tab:
             top_k = gr.Slider(1, 25, value=10, step=1, label="Top-K results")
         run_btn = gr.Button("Match", variant="primary")
         summary_md = gr.Markdown("")
-        results_df = gr.Dataframe(
-            label="Top matches",
-            wrap=True,
-            interactive=False,
-        )
+        rationale_md = gr.Markdown("")
+        results_df = gr.Dataframe(label="Top matches", wrap=True, interactive=False)
         run_btn.click(
             _run_query,
             inputs=[query, country, role_family, seniority, min_salary, max_salary, top_k],
-            outputs=[results_df, summary_md],
+            outputs=[results_df, summary_md, rationale_md],
         )
         gr.Examples(
             examples=EXAMPLES,

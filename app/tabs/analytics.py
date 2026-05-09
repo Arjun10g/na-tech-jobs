@@ -32,13 +32,15 @@ def _resolve_curated_path():
     ):
         if local.exists():
             return local
-    # HF Hub fallback — downloads + caches once.
+    # HF Hub fallback — downloads the *enriched* curated parquet (with
+    # Phase 4 versioned predictions like predicted_salary_usd_v1,
+    # role_family_v1, seniority_label_v1) so the LLM can reference them.
     try:
-        from app.model_loader import get_curated_path
+        from app.model_loader import get_enriched_curated_path
 
-        return get_curated_path()
+        return get_enriched_curated_path()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("HF Hub curated fallback failed :: %s", exc)
+        logger.warning("HF Hub enriched fallback failed :: %s", exc)
         return Path("data/curated/jobs.parquet")
 
 
@@ -101,15 +103,12 @@ def build_tab() -> gr.Tab:
 
     with gr.Tab("Analytics") as tab:
         gr.Markdown(
-            "## Analytics — Natural-language SQL\n\n"
+            "## Analytics\n"
             "Ask a question in plain English. An LLM writes DuckDB SQL "
-            "against the curated jobs table; a sqlglot-based safety "
-            "layer (CLAUDE.md §8 + §11) rejects anything that isn't a "
-            "read-only SELECT over the allowed columns. The executed "
-            "SQL is always shown so you can verify it.\n\n"
-            "_Backend: Anthropic Claude (preferred when `ANTHROPIC_API_KEY` "
-            "is set), else HF Inference / Qwen2.5-7B (when `HF_TOKEN` is "
-            "set). Results capped at 1000 rows / 5 s._"
+            "against the curated jobs table; a sqlglot-based safety layer "
+            "rejects anything that isn't a read-only SELECT over the allowed "
+            "columns. The executed SQL is shown alongside results so you can "
+            "verify what actually ran."
         )
         with gr.Row():
             with gr.Column(scale=2):
