@@ -101,21 +101,41 @@ def _build_splitter(target_tokens: int, overlap_tokens: int) -> RecursiveCharact
     )
 
 
+def _coerce(v: Any) -> Any:
+    """Recursively coerce numpy / pandas scalars and arrays to plain
+    Python so the payload serializes cleanly via Qdrant's pydantic-core
+    JSON path. Arrays of arrays unfold; NaN floats become None."""
+    if v is None:
+        return None
+    # numpy / pandas scalars: x.item() returns a plain Python value.
+    if hasattr(v, "shape") and getattr(v, "shape", None) == ():
+        with contextlib.suppress(AttributeError, ValueError):
+            return _coerce(v.item())
+    # numpy arrays / pandas Series — recurse into elements.
+    if hasattr(v, "tolist") and not isinstance(v, (str, bytes)):
+        with contextlib.suppress(AttributeError, ValueError):
+            return [_coerce(x) for x in v.tolist()]
+    # Plain containers — recurse.
+    if isinstance(v, (list, tuple)):
+        return [_coerce(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _coerce(x) for k, x in v.items()}
+    # Scalar-with-.item (e.g. numpy.float64).
+    if hasattr(v, "item") and not isinstance(v, (str, bytes, bool, int, float)):
+        with contextlib.suppress(AttributeError, ValueError):
+            return v.item()
+    # Replace NaN floats with None — Qdrant rejects NaN.
+    if isinstance(v, float) and v != v:  # noqa: PLR0124 — NaN check
+        return None
+    return v
+
+
 def _select_payload(row: dict[str, Any]) -> dict[str, Any]:
     """Extract only the payload fields that survive into the index."""
     payload: dict[str, Any] = {}
     for k in PAYLOAD_FIELDS:
         if k in row:
-            v = row[k]
-            # Coerce numpy/pandas scalars to plain Python so the payload
-            # serializes cleanly in Qdrant.
-            if hasattr(v, "item"):
-                with contextlib.suppress(AttributeError, ValueError):
-                    v = v.item()
-            elif hasattr(v, "tolist"):
-                with contextlib.suppress(AttributeError, ValueError):
-                    v = v.tolist()
-            payload[k] = v
+            payload[k] = _coerce(row[k])
     return payload
 
 
