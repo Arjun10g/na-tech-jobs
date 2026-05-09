@@ -58,11 +58,25 @@ api = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
 ]
-# Lean runtime deps for the HF Space — only what salary inference + search need.
-# Avoids pulling torch (~2GB from the [ml] extras) onto the Space.
+# Runtime deps for the HF Space. Phase 5-7 (matcher + analytics) need:
+#   sqlglot       — NL→SQL safety layer
+#   qdrant-client — local-mode vector store for the Matcher tab
+#   langchain-text-splitters — parent-chunk hydration at startup
+#   sentence-transformers — MiniLM embedder (pulls torch, ~2GB, accepted)
+#   huggingface_hub — already a transitive dep, listed for clarity
+#   anthropic     — optional NL→SQL backend (small SDK)
+# FlagEmbedding / peft / transformers extras NOT included — only the lite
+# (sentence-transformers) backend runs on the Space; bge-m3 reindexing happens
+# offline.
 space-runtime = [
     "xgboost>=2.0",
     "scikit-learn>=1.5",
+    "sqlglot>=25.0",
+    "qdrant-client>=1.10",
+    "langchain-text-splitters>=0.2",
+    "sentence-transformers>=3.0",
+    "huggingface_hub>=0.24",
+    "anthropic>=0.34",
 ]
 
 [dependency-groups]
