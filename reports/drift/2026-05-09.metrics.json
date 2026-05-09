@@ -1,0 +1,14 @@
+{
+  "snapshot_date": "2026-05-09",
+  "n_current": 6167,
+  "n_reference": 6167,
+  "columns_total": 14,
+  "columns_drifted": [],
+  "columns_drifted_count": 0,
+  "drift_share": 0.0,
+  "psi_per_column": {},
+  "priority_breach": false,
+  "breached_features": [],
+  "psi_threshold": 0.2,
+  "drift_share_threshold": 0.3
+}

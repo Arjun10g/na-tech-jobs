@@ -43,8 +43,10 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 4 — Multi-model + payload enrichment | ✅ | Frozen-MiniLM + LR seniority (val f1_macro 0.812 reviewed-gold) and role-family (0.934) classifiers, regex skills layer, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
 | 5 — Retrieval stack | ✅ | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
 | 6a — Retrieval eval harness | ✅ | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
-| **7 — NL→SQL analytics** | ✅ **NEW** | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live on the Space, executed SQL always shown alongside results. **61 dedicated safety tests.** |
-| 8-9 — drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
+| 7 — NL→SQL analytics | ✅ | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live, executed SQL always shown. **61 dedicated safety tests.** |
+| **8a — Operational dashboard** | ✅ **NEW** | Evidently drift detection between two snapshots (PSI ≥ 0.20 → priority retrain), pipeline-health rollup (per-extractor success/fail), market-trend tabs (salary distribution by role × seniority, top companies, role-family share by country, top skills) all live in the new Dashboard tab. Live numbers: 12,334 active jobs, 49.8% disclosure, top company **Anduril (1,888 postings)**, Canada SWE-ML share 29.6% vs US 21.2%. |
+| 8b — CI workflows | future | weekly drift cron + monthly retrain workflow with champion/challenger gate |
+| 9 — polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
 ---
 

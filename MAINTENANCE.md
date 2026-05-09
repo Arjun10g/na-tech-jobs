@@ -178,6 +178,31 @@ Conventions:
     issues.
   - Status: `open` (acceptable for v1; flag to monitor).
 
+### Phase 8 / monitoring follow-ups
+
+- **Weekly drift cron**. `monitoring/drift.py` is invokable manually but
+  the GitHub Action that runs it on schedule (Mondays 03:00 UTC after
+  the ingest cron) doesn't exist yet. Trivial to wire — the runner is a
+  small bash that calls `python -m monitoring.drift --reference
+  <4-weeks-ago>/jobs.parquet --current latest/jobs.parquet --alert`
+  with `HF_TOKEN` + `DISCORD_WEBHOOK_URL` from secrets.
+  - Target: **Phase 8b** — adds `.github/workflows/drift.yml`.
+  - Status: `open`.
+
+- **Monthly retrain workflow + champion/challenger gate**. CLAUDE.md §7
+  spec'd this; not yet implemented. The retrain script needs to read
+  `reports/drift/<date>.priority.json` and bump priority when present.
+  - Target: **Phase 8b** — adds `.github/workflows/retrain.yml`.
+  - Status: `open`.
+
+- **Dataset README YAML frontmatter**. `scripts/publish_dataset_docs.py`
+  warning: HF expected `---` YAML metadata at the top of the dataset
+  README. Currently the project README is reused as-is. Polish: add a
+  small frontmatter block (license, tags, splits) to README.md — or
+  ship a thinner dataset-card README.md alongside the project one.
+  - Target: **Phase 9 polish.**
+  - Status: `open` (cosmetic — dataset still loads fine).
+
 ### CI / ops
 
 - **No drift detection yet.** CLAUDE.md §10 schedules this for Phase 8. The
@@ -203,6 +228,58 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 8a: operational dashboard + drift detection
+
+What landed:
+- `monitoring/drift.py`: Evidently 0.7 wrapper. `run_drift_report()`
+  takes two parquets (current + reference) → HTML to
+  `reports/drift/<date>.html` + `metrics.json` with PSI per tracked
+  feature. `synthetic_split()` random-shuffles one parquet into halves
+  for v1 demo (real drift activates at the 2nd snapshot). Threshold
+  breach (`PSI ≥ 0.20` on any tracked feature OR `drift_share ≥ 0.30`
+  globally) writes a `priority.json` flag the retrain workflow will
+  consume; sends a Discord alert via `monitoring/alerts.py`.
+- `monitoring/pipeline_health.py`: rolls up
+  `data/snapshots/<date>/ingestion_stats.json`,
+  `data/curated/build_stats.json`,
+  `data/curated_enriched/enrich_stats.json` into a `PipelineHealth`
+  dataclass + a markdown card. Falls back to deriving counts directly
+  from the curated parquet when no ingestion_stats are on disk yet
+  (fresh checkout).
+- `monitoring/market_trends.py`: pure-pandas summaries —
+  `headline_numbers()`, `salary_distribution()` (role × seniority p25/
+  median/p75), `top_companies()`, `role_family_share()`, `top_skills()`.
+  All recomputed on demand from the latest curated parquet.
+- `app/tabs/dashboard.py`: Gradio Dashboard tab. Headline card +
+  pipeline health card up top, four sub-tabs (Salary distribution /
+  Top companies / Role family by country / Top skills), drift report
+  HTML + metrics card at the bottom. Refresh button recomputes
+  everything from disk.
+- `scripts/publish_dataset_docs.py`: pushes only `README.md` and
+  `DATA_DICTIONARY.md` to the HF Dataset repo (whitelist-enforced).
+  Intentionally excludes `CLAUDE.md`, `MAINTENANCE.md`,
+  `LITERATURE_REVIEW.md` — those stay on the GitHub repo for
+  contributors only.
+
+Live smoke test on the current corpus:
+- 12,334 active jobs, 49.8% disclosure rate, median predicted salary
+  $187,507, median disclosed $195,000.
+- Top 5 employers by postings: Anduril (1,888), SpaceX (1,685),
+  Databricks (818), Stripe (494), MongoDB (434).
+- Role-family by country: US is DE-heavy (29.9%), CA is SWE-ML-heavy
+  (29.6%) — surprising and worth a note in the model card.
+- Synthetic-split drift report runs end-to-end → `reports/drift/2026-
+  05-09.html`. Real drift activates at the 2nd weekly snapshot.
+- Dataset docs pushed (commit `f6ebe2a4`).
+
+15 new monitoring tests (358 total). Lint clean.
+
+CI follow-ups (logged Open below):
+- Weekly drift cron (`.github/workflows/drift.yml`) — Mondays after
+  ingest. Will call `monitoring.drift` with the latest snapshot vs. the
+  4-week-rolling baseline.
+- Monthly retrain workflow with champion/challenger gate.
 
 ### 2026-05-08 — Phase 7: NL→SQL analytics + safety layer
 
