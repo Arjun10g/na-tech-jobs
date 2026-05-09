@@ -86,11 +86,10 @@ def _search(
 def build_tab() -> gr.Tab:
     with gr.Tab("Search") as tab:
         gr.Markdown(
-            "## Search the curated dataset\n\n"
-            "Substring match on title + company name; filter by country and "
-            "role family. Phase 5 swaps this for bge-m3 hybrid retrieval — "
-            "this v0 is the placeholder + sanity check that the parquet is "
-            "reachable."
+            "## Search\n"
+            "Substring match on title + company name with country and "
+            "role-family filters. For semantic search across the full "
+            "description text, see the Matcher tab."
         )
 
         with gr.Row():

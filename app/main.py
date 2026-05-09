@@ -4,6 +4,11 @@ All five user-facing tabs live here: Salary, Search, Matcher,
 Analytics, Dashboard. Build-time imports are kept minimal — each tab
 defers heavy imports (torch, qdrant_client, sentence-transformers, etc.)
 to first interaction so app startup stays fast.
+
+UI is dark-themed by default — forced via Gradio's ?__theme=dark URL
+arg at first paint. The accompanying CSS provides typography (system
+font stack, tabular numerals) and tightens the dark-mode palette so
+the contrast doesn't flatten readability.
 """
 
 from __future__ import annotations
@@ -16,16 +21,36 @@ PROJECT_NAME = "na-tech-jobs"
 TAGLINE = "A production ML platform for the North American senior tech-hiring market."
 PHASE = "Phase 8 — operational dashboard live"
 
+# Force dark mode on first paint. Gradio respects the `?__theme=dark`
+# query param + class on <body>; this snippet sets both whenever the
+# user lands on the Space. Saves a manual toggle.
+_FORCE_DARK_JS = """
+() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('__theme') !== 'dark') {
+        url.searchParams.set('__theme', 'dark');
+        window.location.replace(url.toString());
+    }
+}
+"""
 
-# Cohesive typographic baseline. System font stack picks SF on macOS,
-# Segoe on Windows, Roboto on Android, sans-serif everywhere else.
-# Tabular numerals make all the numeric-heavy tables in Dashboard +
-# Matcher line up cleanly.
+# Typography + dark-mode color tweaks. All overrides scoped to
+# .gradio-container so they don't leak into Gradio chrome.
 _CSS = """
+:root {
+    --na-bg: #0b0d12;
+    --na-bg-elevated: #11141b;
+    --na-border: #232735;
+    --na-text: #e7e9ee;
+    --na-text-muted: #9aa0ac;
+    --na-accent: #818cf8; /* indigo-400, gentler than indigo-500 in dark */
+}
+
 .gradio-container,
 .gradio-container button,
 .gradio-container input,
 .gradio-container textarea,
+.gradio-container select,
 .gradio-container .markdown,
 .gradio-container .markdown p {
     font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI",
@@ -34,28 +59,114 @@ _CSS = """
     -moz-osx-font-smoothing: grayscale;
 }
 .gradio-container { max-width: 1280px !important; }
+
+/* Headings */
 .gradio-container h1,
 .gradio-container h2,
 .gradio-container h3 {
     font-weight: 600;
     letter-spacing: -0.015em;
     line-height: 1.25;
+    color: var(--na-text);
 }
 .gradio-container h1 { font-size: 2.0rem; margin-bottom: 0.25rem; }
 .gradio-container h2 { font-size: 1.4rem; margin-top: 1.4rem; margin-bottom: 0.5rem; }
 .gradio-container h3 { font-size: 1.1rem; margin-top: 1.0rem; margin-bottom: 0.4rem; }
 .gradio-container p { line-height: 1.55; }
+
+/* Mono for code + tabular numerals for tables */
 .gradio-container code,
-.gradio-container pre {
+.gradio-container pre,
+.gradio-container .code-wrap pre {
     font-family: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace !important;
     font-size: 0.92em;
 }
 .gradio-container table { font-feature-settings: "tnum" 1, "lnum" 1; }
-.gradio-container button.lg { font-weight: 600; }
+
+/* Dark-mode overrides — only kick in when Gradio has applied .dark */
+.dark .gradio-container,
+.gradio-container.dark {
+    background: var(--na-bg) !important;
+}
+.dark .gradio-container .block,
+.dark .gradio-container .form,
+.dark .gradio-container .panel {
+    background: var(--na-bg-elevated) !important;
+    border-color: var(--na-border) !important;
+}
+.dark .gradio-container input,
+.dark .gradio-container textarea,
+.dark .gradio-container select {
+    background: var(--na-bg) !important;
+    color: var(--na-text) !important;
+    border-color: var(--na-border) !important;
+}
+.dark .gradio-container .tab-nav button {
+    color: var(--na-text-muted) !important;
+}
+.dark .gradio-container .tab-nav button.selected {
+    color: var(--na-accent) !important;
+    border-bottom-color: var(--na-accent) !important;
+}
+.dark .gradio-container .markdown,
+.dark .gradio-container .markdown p,
+.dark .gradio-container .markdown li {
+    color: var(--na-text) !important;
+}
+.dark .gradio-container .markdown a { color: var(--na-accent) !important; }
 
 /* Project header band */
 #na-tech-jobs-header h1 { margin-bottom: 0.1em; }
-#na-tech-jobs-header p { color: var(--body-text-color-subdued); margin-top: 0; }
+#na-tech-jobs-header p { color: var(--na-text-muted); margin-top: 0; }
+
+/* Tighten dataframe rows + force readable contrast */
+.gradio-container .table-wrap td,
+.gradio-container .table-wrap th,
+.gradio-container .svelte-virtual-table-viewport td,
+.gradio-container .svelte-virtual-table-viewport th {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 0.94em;
+}
+/* Dark-mode dataframe — force light text on dark cells. Gradio's
+   default dataframe in dark mode is low-contrast; this fixes it. */
+.dark .gradio-container .table-wrap,
+.dark .gradio-container .table-wrap table,
+.dark .gradio-container .table-wrap td,
+.dark .gradio-container .table-wrap th,
+.dark .gradio-container .svelte-virtual-table-viewport,
+.dark .gradio-container .svelte-virtual-table-viewport td,
+.dark .gradio-container .svelte-virtual-table-viewport th {
+    color: var(--na-text) !important;
+    background: var(--na-bg-elevated) !important;
+}
+.dark .gradio-container .table-wrap th,
+.dark .gradio-container .svelte-virtual-table-viewport th {
+    background: var(--na-bg) !important;
+    color: var(--na-text-muted) !important;
+    font-weight: 600;
+    border-bottom: 1px solid var(--na-border) !important;
+}
+.dark .gradio-container .table-wrap tr:hover td {
+    background: #1a1f2b !important;
+}
+/* Links inside dataframe cells (matcher URL column) */
+.gradio-container .table-wrap td a,
+.gradio-container .svelte-virtual-table-viewport td a {
+    color: var(--na-accent) !important;
+    text-decoration: underline;
+}
+.gradio-container .table-wrap td a:hover {
+    text-decoration: none;
+}
+
+/* Primary button gets the accent color in dark */
+.dark .gradio-container button.primary,
+.dark .gradio-container button[variant="primary"] {
+    background: var(--na-accent) !important;
+    color: #0b0d12 !important;
+    border: 0 !important;
+    font-weight: 600;
+}
 """
 
 
@@ -79,8 +190,14 @@ def build_app() -> gr.Blocks:
     theme = gr.themes.Soft(
         primary_hue="indigo",
         secondary_hue="slate",
+        neutral_hue="zinc",
     )
-    with gr.Blocks(title=PROJECT_NAME, theme=theme, css=_CSS) as app:
+    with gr.Blocks(
+        title=PROJECT_NAME,
+        theme=theme,
+        css=_CSS,
+        js=_FORCE_DARK_JS,
+    ) as app:
         with gr.Group(elem_id="na-tech-jobs-header"):
             gr.Markdown(f"# {PROJECT_NAME}\n{TAGLINE}")
         with gr.Tab("Status"):

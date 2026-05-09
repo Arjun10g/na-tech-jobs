@@ -139,6 +139,8 @@ def _run_query(
         snippet = (r.text or "").strip().replace("\n", " ")
         if len(snippet) > 280:
             snippet = snippet[:277] + "…"
+        url = p.get("url") or ""
+        link_html = f'<a href="{url}" target="_blank" rel="noopener">apply ↗</a>' if url else "—"
         rows.append(
             {
                 "score": round(r.score, 3),
@@ -151,7 +153,7 @@ def _run_query(
                 "predicted_salary_usd_yr": _format_money(p.get("predicted_salary_usd_v1")),
                 "skills": ", ".join((p.get("extracted_skills_v1") or [])[:6]),
                 "snippet": snippet,
-                "url": p.get("url") or "",
+                "link": link_html,
             }
         )
     df = pd.DataFrame(rows)
@@ -224,7 +226,37 @@ def build_tab() -> gr.Tab:
         run_btn = gr.Button("Match", variant="primary")
         summary_md = gr.Markdown("")
         rationale_md = gr.Markdown("")
-        results_df = gr.Dataframe(label="Top matches", wrap=True, interactive=False)
+        results_df = gr.Dataframe(
+            label="Top matches",
+            headers=[
+                "score",
+                "title",
+                "company",
+                "location",
+                "country",
+                "seniority",
+                "role_family",
+                "predicted_salary_usd_yr",
+                "skills",
+                "snippet",
+                "link",
+            ],
+            datatype=[
+                "number",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "html",
+            ],
+            wrap=True,
+            interactive=False,
+        )
         run_btn.click(
             _run_query,
             inputs=[query, country, role_family, seniority, min_salary, max_salary, top_k],

@@ -138,13 +138,11 @@ def _predict_from_form(
 def build_tab() -> gr.Tab:
     with gr.Tab("Salary predictor") as tab:
         gr.Markdown(
-            "## Predict NA tech salary\n\n"
-            "Paste a job description (markdown or HTML — both work). The "
-            "regex cascade extracts ~20 features; the XGBoost regressor "
-            "predicts the maximum salary in USD/year. Adjust any extracted "
-            "field below to see how the prediction changes.\n\n"
-            "_The model is purely tabular (Phase 2). bge-m3 description "
-            "embeddings + a higher MAE/MAPE land in Phase 5._"
+            "## Salary predictor\n"
+            "Paste a job description. The regex cascade extracts ~20 "
+            "features; an XGBoost regressor predicts the maximum salary in "
+            "USD/year. Adjust any extracted field below to see how the "
+            "prediction changes."
         )
 
         with gr.Row():
