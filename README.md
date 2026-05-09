@@ -231,6 +231,21 @@ inference-permitted `HF_TOKEN`):
 uv run python -m rag.nl2sql "median predicted salary by country for senior MLEs"
 ```
 
+**Live numbers from a 4-query smoke test** (Qwen2.5-7B via HF Inference,
+against the live `data/curated_enriched/jobs.parquet`):
+
+| Question | LLM-generated SQL | Result |
+|---|---|---|
+| _How many senior MLE jobs are open in the US right now?_ | `WHERE seniority_label_v1='senior' AND role_family_v1='MLE' AND country='US'` | **276** |
+| _Top 5 companies hiring data scientists, ranked by number of postings._ | `GROUP BY company_name ORDER BY n DESC LIMIT 5` | Pinterest 65, Robinhood 61, Databricks 47, Whatnot 45, Jane Street 23 |
+| _What is the average disclosed salary range for staff-level roles?_ | `AVG((salary_min + salary_max)/2) WHERE salary_disclosed` | **$212,863** USD/yr |
+| _Distribution of role_family_v1 across countries._ | `GROUP BY country, role_family_v1` | 12 rows; US dominates RS (1,238), DA (2,918), DE (3,492); CA at 28, 122, ... respectively |
+
+LLM accuracy on this set: 4/4. (One earlier query asked for "senior MLE
+median salary" and the LLM filtered on `principal` — small sample, so
+treat the smoke test as illustrative rather than benchmarked. A proper
+NL→SQL eval set lands in v1.1 alongside the drift dashboard.)
+
 ---
 
 ## Quickstart

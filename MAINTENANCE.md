@@ -241,11 +241,14 @@ End-to-end smoke test against `data/curated_enriched/jobs.parquet`:
 CA: 51 rows avg $174,334. Pipeline tier-by-tier all green.
 
 Three operational notes:
-- HF_TOKEN currently scoped to dataset/model writes — needs an
-  Inference-Provider permission for the live LLM call to work. The
-  Analytics tab's other half (validation + execution) doesn't depend on
-  the LLM, so the safety layer + schema panel still render even when
-  the LLM is unconfigured.
+- After the user added the "Make calls to Inference Providers"
+  permission to `HF_TOKEN`, end-to-end LLM calls work via Qwen2.5-7B-
+  Instruct. 4-query smoke test result: 4/4 correct (Senior MLE in US
+  = 276; top-5 DS-hiring companies Pinterest/Robinhood/Databricks/
+  Whatnot/Jane Street; avg staff disclosed salary $212,863; role_family
+  × country distribution 12 rows). One earlier query ("senior MLE
+  median salary by country") had Qwen filter on `principal` instead of
+  `senior` — small-sample noise; proper NL→SQL eval set is a v1.1 task.
 - Anthropic backend is preferred when `ANTHROPIC_API_KEY` is present;
   the Phase 7 commit ships both backends so credential changes are an
   env-var swap, not a code change.
