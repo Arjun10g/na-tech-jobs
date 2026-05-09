@@ -119,14 +119,22 @@ _CSS = """
 #na-tech-jobs-header h1 { margin-bottom: 0.1em; }
 #na-tech-jobs-header p { color: var(--na-text-muted); margin-top: 0; }
 
-/* Tighten dataframe rows + force readable contrast */
+/* Tighten dataframe rows. Per-tab `wrap=` controls cell wrapping;
+   we just tighten padding/typography globally and ensure the table
+   container scrolls horizontally for wide result sets. */
 .gradio-container .table-wrap td,
 .gradio-container .table-wrap th,
 .gradio-container .svelte-virtual-table-viewport td,
 .gradio-container .svelte-virtual-table-viewport th {
-    padding: 0.45rem 0.6rem !important;
-    font-size: 0.94em;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.9em;
+    line-height: 1.35;
+    vertical-align: top;
 }
+/* Stop a single long-text cell from stretching its column to the full
+   container width; enforce a ceiling and let overflow scroll. */
+.gradio-container .table-wrap td { max-width: 420px; }
+.gradio-container .table-wrap { overflow-x: auto !important; }
 /* Dark-mode dataframe — force light text on dark cells. Gradio's
    default dataframe in dark mode is low-contrast; this fixes it. */
 .dark .gradio-container .table-wrap,

@@ -124,7 +124,7 @@ def build_tab() -> gr.Tab:
         results_df = gr.Dataframe(
             label="Results",
             interactive=False,
-            wrap=True,
+            wrap=False,  # one-line rows; horizontal scroll if cells overflow
             max_height=520,
         )
         gr.Examples(examples=EXAMPLES, inputs=[question], label="Examples")
