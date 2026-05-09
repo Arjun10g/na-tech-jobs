@@ -1,20 +1,35 @@
 """Lazy singleton retriever for the Gradio app.
 
 The first call loads:
-- the Qdrant local-mode client (~10 ms),
+- the Qdrant local-mode client (~10 ms). When the index isn't on disk
+  (typical for a fresh Space cold start) we pull a pre-built tarball
+  from the HF Dataset repo (``qdrant/qdrant_<encoder>_<version>.tar.gz``)
+  and extract it in place; subsequent calls re-use the materialized
+  directory.
 - the embedder (MiniLM by default; swap to bge-m3 by setting
   ``RAG_EMBEDDER`` env var),
 - optionally the cross-encoder reranker (``RAG_RERANKER`` env var to
-  enable; defaults to OFF for cold-start latency).
+  enable; defaults to OFF for cold-start latency),
 - a parent-chunk lookup built from the enriched curated parquet.
 
 After construction we cache and reuse for every query.
+
+Env vars:
+- ``RAG_QDRANT_PATH``       — local-mode Qdrant directory (default ``data/qdrant``).
+- ``RAG_QDRANT_TARBALL``    — filename in the dataset repo to pull when
+  the path is missing (default ``qdrant_minilm_v1.tar.gz``).
+- ``HF_DATASET_REPO``       — the dataset repo to pull from
+  (default ``arjun10g/na-tech-jobs``).
+- ``RAG_EMBEDDER``          — embedder model id (default ``lite`` = MiniLM).
+- ``RAG_RERANKER``          — ``off`` / ``lite`` / model id
+  (default ``off``).
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import tarfile
 from pathlib import Path
 from typing import Any
 
@@ -22,11 +37,70 @@ logger = logging.getLogger("app.retriever_loader")
 
 _retriever_singleton: Any | None = None
 _qdrant_path: Path = Path("data/qdrant")
+_DEFAULT_TARBALL = "qdrant_minilm_v1.tar.gz"
 
 
 def _resolve_qdrant_path() -> Path:
     env = os.environ.get("RAG_QDRANT_PATH")
     return Path(env) if env else _qdrant_path
+
+
+def _ensure_qdrant_index(qdrant_path: Path) -> None:
+    """If the Qdrant directory isn't on disk, pull the tarball from the
+    HF Dataset repo and extract.
+
+    Fast-path: directory already populated (`collection/` subdir present).
+    Slow-path: download tarball (~few hundred MB) → extract → done. This
+    happens once per persistent-disk lifetime on the Space.
+    """
+    if (qdrant_path / "collection").exists():
+        return  # Already materialized.
+
+    tarball_name = os.environ.get("RAG_QDRANT_TARBALL", _DEFAULT_TARBALL)
+    repo_id = os.environ.get("HF_DATASET_REPO", "arjun10g/na-tech-jobs")
+    token = os.environ.get("HF_TOKEN")
+
+    logger.info(
+        "Qdrant index missing at %s — fetching %s from dataset:%s",
+        qdrant_path,
+        tarball_name,
+        repo_id,
+    )
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:
+        raise RuntimeError(f"huggingface_hub not installed; can't fetch {tarball_name}") from exc
+
+    try:
+        local_tar = hf_hub_download(
+            repo_id=repo_id,
+            filename=f"qdrant/{tarball_name}",
+            repo_type="dataset",
+            token=token,
+        )
+    except Exception as exc:
+        raise FileNotFoundError(
+            f"Qdrant index missing locally and tarball "
+            f"qdrant/{tarball_name} not in {repo_id} :: {exc}"
+        ) from exc
+
+    qdrant_path.mkdir(parents=True, exist_ok=True)
+    logger.info("extracting %s → %s", local_tar, qdrant_path)
+    with tarfile.open(local_tar, "r:*") as tf:
+        # Tarball was created with `tar -cf - -C data qdrant`, so each
+        # member starts with `qdrant/`. Strip that top-level prefix so
+        # contents land directly in qdrant_path (which may have a
+        # different name, e.g. `/data/qdrant` on the Space).
+        members = []
+        prefix = "qdrant/"
+        for m in tf.getmembers():
+            if m.name == "qdrant" or m.name == "qdrant/":
+                continue
+            if m.name.startswith(prefix):
+                m.name = m.name[len(prefix) :]
+            members.append(m)
+        tf.extractall(path=qdrant_path, members=members)
+    logger.info("Qdrant index ready :: %s", qdrant_path)
 
 
 def _resolve_embedder_kind() -> tuple[bool, str | None]:
@@ -62,18 +136,14 @@ def get_retriever():
     from rag.qdrant_client import COLLECTION_DENSE, get_client
 
     qdrant_path = _resolve_qdrant_path()
-    if not qdrant_path.exists():
-        raise FileNotFoundError(
-            f"Qdrant index missing at {qdrant_path}. "
-            "Run `uv run python -m scripts.index_jobs --lite` first."
-        )
+    _ensure_qdrant_index(qdrant_path)
 
     logger.info("opening qdrant local client at %s", qdrant_path)
     client = get_client(qdrant_path)
     if not client.collection_exists(COLLECTION_DENSE):
         raise RuntimeError(
             f"Qdrant collection '{COLLECTION_DENSE}' does not exist at {qdrant_path}. "
-            "Re-run `scripts.index_jobs`."
+            "Re-run `scripts.index_jobs` or check the published tarball."
         )
 
     lite, override = _resolve_embedder_kind()
