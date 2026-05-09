@@ -41,7 +41,7 @@ def _query(
             role_family_extracted AS role,
             seniority_extracted AS seniority,
             CASE WHEN salary_disclosed THEN
-                printf('$%d - $%d', salary_min_usd_yearly, salary_max_usd_yearly)
+                printf('$%d - $%d', CAST(salary_min_usd_yearly AS BIGINT), CAST(salary_max_usd_yearly AS BIGINT))
             ELSE '—' END AS salary_usd_yearly,
             url
         FROM read_parquet('{parquet_path.as_posix()}')
