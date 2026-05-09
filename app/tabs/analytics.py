@@ -110,25 +110,30 @@ def build_tab() -> gr.Tab:
             "columns. The executed SQL is shown alongside results so you can "
             "verify what actually ran."
         )
-        with gr.Row():
-            with gr.Column(scale=2):
-                question = gr.Textbox(
-                    label="Question",
-                    lines=2,
-                    placeholder="e.g. What's the median predicted salary for senior MLEs in the US?",
-                )
-                run_btn = gr.Button("Ask", variant="primary")
-                status_md = gr.Markdown("")
-                executed_sql = gr.Code(label="Executed SQL", language="sql")
-                results_df = gr.Dataframe(label="Results", interactive=False, wrap=True)
-            with gr.Column(scale=1):
-                gr.Markdown("### Schema (read-only)")
-                gr.Markdown("```\n" + schema_description() + "\n```")
+        # Full-width column — the schema reference moved into a collapsed
+        # accordion below so the dataframe and SQL panel get the entire
+        # container width (otherwise wide result sets are unreadable).
+        question = gr.Textbox(
+            label="Question",
+            lines=2,
+            placeholder="e.g. What's the median predicted salary for senior MLEs in the US?",
+        )
+        run_btn = gr.Button("Ask", variant="primary")
+        status_md = gr.Markdown("")
+        executed_sql = gr.Code(label="Executed SQL", language="sql")
+        results_df = gr.Dataframe(
+            label="Results",
+            interactive=False,
+            wrap=True,
+            max_height=520,
+        )
+        gr.Examples(examples=EXAMPLES, inputs=[question], label="Examples")
+        with gr.Accordion("Schema reference (queryable columns)", open=False):
+            gr.Markdown("```\n" + schema_description() + "\n```")
 
         run_btn.click(
             _run_nl2sql,
             inputs=[question],
             outputs=[status_md, executed_sql, results_df],
         )
-        gr.Examples(examples=EXAMPLES, inputs=[question], label="Examples")
     return tab
