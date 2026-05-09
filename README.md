@@ -45,7 +45,7 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 6a — Retrieval eval harness | ✅ | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
 | 7 — NL→SQL analytics | ✅ | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live, executed SQL always shown. **61 dedicated safety tests.** |
 | **8a — Operational dashboard** | ✅ **NEW** | Evidently drift detection between two snapshots (PSI ≥ 0.20 → priority retrain), pipeline-health rollup (per-extractor success/fail), market-trend tabs (salary distribution by role × seniority, top companies, role-family share by country, top skills) all live in the new Dashboard tab. Live numbers: 12,334 active jobs, 49.8% disclosure, top company **Anduril (1,888 postings)**, Canada SWE-ML share 29.6% vs US 21.2%. |
-| 8b — CI workflows | future | weekly drift cron + monthly retrain workflow with champion/challenger gate |
+| **8b — CI workflows** | ✅ **NEW** | `.github/workflows/drift.yml` (Mondays 03:00 UTC, pulls 4-week-old reference + latest snapshot, runs Evidently, pushes report to dataset repo, alerts Discord on PSI breach) + `.github/workflows/retrain.yml` (monthly 1st @ 04:00 UTC, matrix over classifiers, champion/challenger gate via `monitoring.champion_challenger`, conditional publish if challenger passes) |
 | 9 — polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
 ---

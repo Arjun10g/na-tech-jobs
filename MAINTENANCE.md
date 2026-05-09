@@ -180,19 +180,26 @@ Conventions:
 
 ### Phase 8 / monitoring follow-ups
 
-- **Weekly drift cron**. `monitoring/drift.py` is invokable manually but
-  the GitHub Action that runs it on schedule (Mondays 03:00 UTC after
-  the ingest cron) doesn't exist yet. Trivial to wire — the runner is a
-  small bash that calls `python -m monitoring.drift --reference
-  <4-weeks-ago>/jobs.parquet --current latest/jobs.parquet --alert`
-  with `HF_TOKEN` + `DISCORD_WEBHOOK_URL` from secrets.
-  - Target: **Phase 8b** — adds `.github/workflows/drift.yml`.
-  - Status: `open`.
+- **Weekly drift cron** — **Resolved 2026-05-08** in Phase 8b.
+  `.github/workflows/drift.yml` lands the Mondays 03:00 UTC schedule
+  with synthetic-split fallback for the first ~4 weeks before the
+  rolling baseline materializes.
 
-- **Monthly retrain workflow + champion/challenger gate**. CLAUDE.md §7
-  spec'd this; not yet implemented. The retrain script needs to read
-  `reports/drift/<date>.priority.json` and bump priority when present.
-  - Target: **Phase 8b** — adds `.github/workflows/retrain.yml`.
+- **Monthly retrain workflow + champion/challenger gate** — **Resolved
+  2026-05-08** in Phase 8b. `.github/workflows/retrain.yml` matrix-runs
+  `[seniority, role_family]`, pulls champion summary, trains
+  challenger, applies `monitoring.champion_challenger.gate_classifier`,
+  publishes only if the gate passes. Salary regressor entry omitted
+  from v1 matrix — see follow-up below.
+
+- **Salary regressor in monthly retrain matrix.** The 50-trial Optuna
+  hyperparameter search clocks 4-6 hr on a free GitHub-Actions runner
+  → currently outside the retrain.yml matrix. Options: (a) shrink to
+  20 trials for monthly cycles + occasional manual full-search runs,
+  (b) move to an HF Jobs A10G call from the workflow, (c) dedicated
+  self-hosted runner.
+  - Target: **v1.2** — pick (a) or (b) once we have a few months of
+    retrain data to know whether the gate would have promoted.
   - Status: `open`.
 
 - **Dataset README YAML frontmatter**. `scripts/publish_dataset_docs.py`
@@ -228,6 +235,61 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 8b: CI workflows for drift + retrain
+
+What landed:
+- `.github/workflows/drift.yml` (Mondays 03:00 UTC):
+  1. Pulls `latest/jobs.parquet` from the dataset repo as current.
+  2. Walks `snapshots/` on the dataset repo, picks the newest snapshot
+     ≤ 4 weeks ago as reference. Falls back to synthetic-split when no
+     usable reference exists (first ~4 weeks of operation).
+  3. Runs `monitoring.drift` with `--alert` (sends Discord if breach).
+  4. Pushes the HTML + metrics + priority.json back to
+     `dataset:reports/drift/<date>.*` so the dashboard tab can render
+     it without re-uploading from the local machine.
+  5. Uploads artifacts (30-day retention) for forensics.
+  - Manual `workflow_dispatch` knobs: `reference_weeks_ago` and a
+    `synthetic_split` boolean.
+
+- `.github/workflows/retrain.yml` (monthly, 1st @ 04:00 UTC):
+  1. Matrix over `[seniority, role_family]`.
+  2. Pulls latest enriched curated parquet + champion training_summary.json
+     (per-model HF Model repo).
+  3. Trains the challenger via `models.<model>.train`.
+  4. Runs `monitoring.champion_challenger` with the per-model defaults
+     (primary `eval.eval_f1_macro` ≥ +1%, secondary
+     `eval.eval_accuracy`/`eval.eval_f1_weighted` no > -2% regression).
+  5. Publishes via `scripts.publish_classifier` only if gate
+     promotes (and `inputs.promote != false`).
+  6. Discord alert with PROMOTED / held + reason.
+  7. Artifacts retained 90 days.
+  - First-run path: when no champion summary exists yet, promotion is
+    unconditional with reason `first promotion (no incumbent)`.
+  - Salary regressor matrix entry deliberately omitted from v1 — its
+    50-trial Optuna search is a 4-6 hr GitHub-runner job. Logged Open.
+
+- `monitoring/champion_challenger.py`: model-agnostic gate.
+  - `gate(...)` is the low-level entrypoint with explicit dotted-path
+    metric names + `higher_is_better` flag.
+  - `gate_classifier(model_name, ...)` and `gate_salary_regressor(...)`
+    are the convenience wrappers — pre-fill the right metrics for each
+    model family. CLI returns exit-code 0 when promote=True, 2 when
+    held, so the workflow can branch on `$?`.
+  - 13 unit tests pin the rule from CLAUDE.md §7 (lift ≥ +1%, no
+    secondary regression > 2%, missing-metric → don't promote, salary
+    MAE direction, threshold configurability, default thresholds match
+    spec).
+
+371 tests pass; lint clean; YAML validates with `yaml.safe_load`.
+
+CI follow-ups (logged Open below):
+- Salary-regressor retrain matrix entry — the 50-trial Optuna search
+  is too long for a free GitHub runner. Options: shrink to 20 trials
+  for monthly retrain, run on HF Jobs A10G, or dedicated self-hosted
+  runner.
+- The dataset-card YAML frontmatter polish (already logged) — not a
+  Phase 8b blocker but related.
 
 ### 2026-05-08 — Phase 8a: operational dashboard + drift detection
 

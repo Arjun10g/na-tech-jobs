@@ -1,0 +1,143 @@
+name: Weekly Drift
+
+on:
+  schedule:
+    # Mondays 03:00 UTC, 1 hour after the Sunday ingest cron, per
+    # CLAUDE.md §10 Phase 8.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      reference_weeks_ago:
+        description: "Use the snapshot from N weeks ago as the reference"
+        required: false
+        default: "4"
+      synthetic_split:
+        description: "Demo mode: split latest snapshot into halves (for first run)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      HF_DATASET_REPO: arjun10g/na-tech-jobs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies (core + monitoring)
+        run: uv sync --group dev --extra monitoring
+
+      - name: Resolve current + reference snapshots
+        id: snapshots
+        run: |
+          uv run python - <<'PY'
+          import datetime as dt, os, pathlib
+          from huggingface_hub import HfApi, hf_hub_download
+          from huggingface_hub.errors import EntryNotFoundError
+
+          repo = os.environ["HF_DATASET_REPO"]
+          token = os.environ["HF_TOKEN"]
+
+          # Current — always the latest/jobs.parquet pointer.
+          cur = hf_hub_download(
+              repo_id=repo, filename="latest/jobs.parquet",
+              repo_type="dataset", token=token,
+          )
+
+          # Reference — snapshots/<date>/jobs.parquet from N weeks ago.
+          n_weeks = int("${{ inputs.reference_weeks_ago || '4' }}")
+          api = HfApi(token=token)
+          tree = list(api.list_repo_tree(repo, repo_type="dataset", path_in_repo="snapshots", recursive=False))
+          dates = sorted(p.path.split("/")[-1] for p in tree if p.path.startswith("snapshots/"))
+          target = (
+              dt.datetime.utcnow().date() - dt.timedelta(weeks=n_weeks)
+          ).isoformat()
+          reference_date = ""
+          for d in dates:
+              if d <= target:
+                  reference_date = d
+          ref_path = ""
+          if reference_date:
+              try:
+                  ref_path = hf_hub_download(
+                      repo_id=repo,
+                      filename=f"snapshots/{reference_date}/jobs.parquet",
+                      repo_type="dataset", token=token,
+                  )
+              except EntryNotFoundError:
+                  reference_date = ""
+
+          out = pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a")
+          out.write(f"current={cur}\n")
+          out.write(f"reference={ref_path}\n")
+          out.write(f"reference_date={reference_date}\n")
+          out.write(f"snapshot_date={dt.datetime.utcnow().date().isoformat()}\n")
+          PY
+
+      - name: Run drift
+        run: |
+          ARGS="--out-dir reports/drift --alert"
+          if [ "${{ inputs.synthetic_split }}" = "true" ] || [ -z "${{ steps.snapshots.outputs.reference }}" ]; then
+            echo "Running synthetic-split mode (no usable reference snapshot)"
+            ARGS="$ARGS --synthetic-split --current ${{ steps.snapshots.outputs.current }}"
+          else
+            ARGS="$ARGS --current ${{ steps.snapshots.outputs.current }} --reference ${{ steps.snapshots.outputs.reference }}"
+          fi
+          ARGS="$ARGS --snapshot-date ${{ steps.snapshots.outputs.snapshot_date }}"
+          uv run python -m monitoring.drift $ARGS
+
+      - name: Push drift report to dataset repo
+        run: |
+          uv run python - <<'PY'
+          import os
+          from pathlib import Path
+          from huggingface_hub import CommitOperationAdd, HfApi
+
+          repo = os.environ["HF_DATASET_REPO"]
+          token = os.environ["HF_TOKEN"]
+          date = "${{ steps.snapshots.outputs.snapshot_date }}"
+
+          ops = []
+          for stem in (f"{date}.html", f"{date}.metrics.json", f"{date}.priority.json"):
+              p = Path("reports/drift") / stem
+              if p.exists():
+                  ops.append(CommitOperationAdd(
+                      path_in_repo=f"reports/drift/{stem}",
+                      path_or_fileobj=str(p),
+                  ))
+          if ops:
+              api = HfApi(token=token)
+              commit = api.create_commit(
+                  repo_id=repo, repo_type="dataset",
+                  operations=ops,
+                  commit_message=f"drift: {date}",
+              )
+              print("commit:", getattr(commit, "oid", "<unknown>"))
+          else:
+              print("no drift files to push")
+          PY
+
+      - name: Upload drift artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drift-${{ steps.snapshots.outputs.snapshot_date }}
+          path: reports/drift/
+          retention-days: 30

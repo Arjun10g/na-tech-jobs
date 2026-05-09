@@ -1,0 +1,166 @@
+name: Monthly Retrain
+
+on:
+  schedule:
+    # 1st of every month, 04:00 UTC. Per CLAUDE.md §10 Phase 8.
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated subset (seniority,role_family,salary). Empty = all."
+        required: false
+        default: ""
+      promote:
+        description: "Push to HF Hub if challenger passes the gate"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: retrain
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      HF_DATASET_REPO: arjun10g/na-tech-jobs
+
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [seniority, role_family]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Should this matrix entry run?
+        id: gate
+        run: |
+          if [ -z "${{ inputs.models }}" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif echo "${{ inputs.models }}" | tr ',' '\n' | grep -qx "${{ matrix.model }}"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv
+        if: steps.gate.outputs.run == 'true'
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
+        run: uv python install 3.11
+
+      - name: Sync dependencies (core + ml)
+        if: steps.gate.outputs.run == 'true'
+        run: uv sync --group dev --extra ml
+
+      - name: Pull latest enriched curated parquet
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p data/curated_enriched
+          uv run python - <<'PY'
+          import os, shutil
+          from huggingface_hub import hf_hub_download
+          path = hf_hub_download(
+              repo_id=os.environ["HF_DATASET_REPO"],
+              filename="curated_enriched/jobs.parquet",
+              repo_type="dataset",
+              token=os.environ["HF_TOKEN"],
+          )
+          shutil.copy(path, "data/curated_enriched/jobs.parquet")
+          PY
+          # The classifier trainers expect data/curated/jobs.parquet too.
+          mkdir -p data/curated
+          cp data/curated_enriched/jobs.parquet data/curated/jobs.parquet
+
+      - name: Pull champion training_summary.json
+        if: steps.gate.outputs.run == 'true'
+        id: champion
+        continue-on-error: true
+        run: |
+          uv run python - <<'PY'
+          import os, pathlib
+          from huggingface_hub import hf_hub_download
+          out = pathlib.Path("champion_summary.json")
+          try:
+              p = hf_hub_download(
+                  repo_id=f"arjun10g/na-tech-jobs-${{ matrix.model }}-v1",
+                  filename="training_summary.json",
+                  repo_type="model",
+                  token=os.environ["HF_TOKEN"],
+              )
+              out.write_bytes(open(p, "rb").read())
+              print(f"champion summary: {out.resolve()}")
+          except Exception as exc:
+              print(f"no champion summary yet ({exc}); first promotion will be unconditional")
+          PY
+
+      - name: Train challenger
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          uv run python -m models.${{ matrix.model }}.train
+
+      - name: Apply champion/challenger gate
+        if: steps.gate.outputs.run == 'true'
+        id: gate_decision
+        continue-on-error: true
+        run: |
+          if [ ! -f champion_summary.json ]; then
+            echo "no champion → promoting unconditionally"
+            echo "promote=true" >> "$GITHUB_OUTPUT"
+            echo "reason=first promotion (no incumbent)" >> "$GITHUB_OUTPUT"
+          else
+            uv run python -m monitoring.champion_challenger \
+              --model ${{ matrix.model }} \
+              --champion champion_summary.json \
+              --challenger data/models/${{ matrix.model }}/training_summary.json \
+              --out-path gate_decision.json
+            promote=$(uv run python -c "import json; print(json.load(open('gate_decision.json'))['promote']).lower()")
+            reason=$(uv run python -c "import json; print(json.load(open('gate_decision.json'))['reason'])")
+            echo "promote=$promote" >> "$GITHUB_OUTPUT"
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish if promoted
+        if: |
+          steps.gate.outputs.run == 'true' &&
+          steps.gate_decision.outputs.promote == 'true' &&
+          inputs.promote != false
+        run: |
+          uv run python -m scripts.publish_classifier ${{ matrix.model }} --create
+
+      - name: Discord alert
+        if: steps.gate.outputs.run == 'true' && always()
+        continue-on-error: true
+        run: |
+          uv run python - <<'PY'
+          import os
+          from monitoring.alerts import DISCORD_GREEN, DISCORD_YELLOW, DISCORD_RED, discord_alert
+          promote = "${{ steps.gate_decision.outputs.promote }}" == "true"
+          reason = "${{ steps.gate_decision.outputs.reason }}" or "(no reason recorded)"
+          color = DISCORD_GREEN if promote else DISCORD_YELLOW
+          discord_alert(
+              title=f"📦 Retrain — ${{ matrix.model }} :: {'PROMOTED' if promote else 'held'}",
+              description=reason,
+              color=color,
+          )
+          PY
+
+      - name: Upload artifacts
+        if: steps.gate.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrain-${{ matrix.model }}
+          path: |
+            data/models/${{ matrix.model }}/
+            gate_decision.json
+            champion_summary.json
+          retention-days: 90
