@@ -156,7 +156,7 @@ def setup_multivec_collection(
 # ── Upsert ────────────────────────────────────────────────────────────────
 
 
-def _sparse_to_qdrant(sparse: dict[int, float]):
+def sparse_to_qdrant(sparse: dict[int, float]):
     from qdrant_client import models
 
     return models.SparseVector(
@@ -190,7 +190,7 @@ def upsert_dense(
     for i, chunk in enumerate(chunks):
         vector_payload: dict[str, Any] = {"dense": dense[i].tolist()}
         if sparse is not None:
-            vector_payload["sparse"] = _sparse_to_qdrant(sparse[i])
+            vector_payload["sparse"] = sparse_to_qdrant(sparse[i])
         payload = dict(chunk.payload)
         payload.update(
             {
@@ -290,7 +290,7 @@ def search_sparse(
         collection_name=collection_name,
         query_vector=models.NamedSparseVector(
             name="sparse",
-            vector=_sparse_to_qdrant(query_sparse),
+            vector=sparse_to_qdrant(query_sparse),
         ),
         limit=limit,
         with_payload=True,
