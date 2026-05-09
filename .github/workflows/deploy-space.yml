@@ -72,7 +72,6 @@ jobs:
             --exclude='data/' \
             --exclude='eda/' \
             --exclude='curated/' \
-            --exclude='monitoring/' \
             --exclude='scripts/' \
             --exclude='space-repo/' \
             --exclude='CLAUDE.md' \
