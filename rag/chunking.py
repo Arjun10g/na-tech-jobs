@@ -104,9 +104,18 @@ def _build_splitter(target_tokens: int, overlap_tokens: int) -> RecursiveCharact
 def _coerce(v: Any) -> Any:
     """Recursively coerce numpy / pandas scalars and arrays to plain
     Python so the payload serializes cleanly via Qdrant's pydantic-core
-    JSON path. Arrays of arrays unfold; NaN floats become None."""
+    JSON path. Arrays of arrays unfold; NaN floats become None;
+    pandas Timestamps become ISO strings."""
     if v is None:
         return None
+    # pandas Timestamp / Period / Timedelta → ISO string (json-safe).
+    # Detect by class name to avoid importing pandas at hot-path time.
+    cls_name = type(v).__name__
+    if cls_name in {"Timestamp", "Period", "Timedelta", "DatetimeTZ"}:
+        try:
+            return v.isoformat()
+        except AttributeError:
+            return str(v)
     # numpy / pandas scalars: x.item() returns a plain Python value.
     if hasattr(v, "shape") and getattr(v, "shape", None) == ():
         with contextlib.suppress(AttributeError, ValueError):
@@ -127,6 +136,9 @@ def _coerce(v: Any) -> Any:
     # Replace NaN floats with None — Qdrant rejects NaN.
     if isinstance(v, float) and v != v:  # noqa: PLR0124 — NaN check
         return None
+    # Anything not JSON-native at this point: stringify as a last resort.
+    if not isinstance(v, (str, bytes, bool, int, float, list, dict, tuple, type(None))):
+        return str(v)
     return v
 
 
