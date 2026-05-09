@@ -148,6 +148,25 @@ Conventions:
     box behind a "Text or PDF" radio.
   - Status: `open`.
 
+- **HyDE pre-retrieval expansion (CLAUDE.md §8 toggle).** `rag/hyde.py`
+  lands as a Qwen2.5-7B (or hosted-LLM) call that generates a 200-word
+  hypothetical job posting from the user's query, embeds it, and uses
+  that vector for first-pass retrieval. UI toggle "quality mode: slow"
+  per CLAUDE.md §11 (default off — adds ~3-5 s/query).
+  - Target: **Phase 6 follow-up** — alongside HF Spaces ZeroGPU wiring
+    for the Qwen call. Eval table in README will gain the
+    `hybrid+rerank+hyde` row.
+  - Status: `open`.
+
+- **ColBERT multi-vector late-interaction reranking.** `rag/colbert.py`
+  fetches multi-vec embeddings from `jobs_multivec` for the top 20
+  rerank candidates and computes MaxSim against query token vectors.
+  Blocked on the bge-m3 reindex — MiniLM doesn't produce multi-vec.
+  - Target: **v1.1 + Phase 6** — re-index with bge-m3 `--multivec` then
+    enable the toggle. Adds the `hybrid+rerank+colbert` and
+    `hybrid+rerank+colbert+hyde` rows to the eval table.
+  - Status: `open` (depends on bge-m3 reindex).
+
 - **Qdrant local-mode warning at >20k points.** qdrant-client emits a
   `UserWarning: Local mode is not recommended for collections with more
   than 20,000 points` once we exceed that threshold (we have 120k). Local
@@ -184,6 +203,48 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 6a: retrieval eval harness + first numbers
+
+What landed:
+- `eval/metrics.py`: recall@k, MRR, nDCG@k, evaluate_query, aggregate.
+  Aggregates exclude queries with 0 relevant docs so the mean isn't
+  artificially deflated. 19 unit tests pinning each metric (perfect
+  ranking, no hits, partial hits, truncation correctness, MRR-uses-
+  first-hit, IDCG normalization).
+- `eval/run_retrieval_eval.py`: multi-variant runner.
+  `_retriever_for_variant` builds a HybridRetriever per variant
+  (`dense`, `hybrid`, `hybrid+rerank`); each query → top-K *job_ids* →
+  per-query CSV + aggregate JSON + markdown table for the README.
+- `scripts/build_retrieval_queries.py`: builds `eval/retrieval_queries.jsonl`
+  from two sources. (1) Title-as-query — sample N jobs whose normalized
+  title appears ≥2 times in the corpus, gold = all jobs with the same
+  (title, country). Rewards retrieval that finds *similar* jobs across
+  companies, not just the exact sampled doc. (2) Hand-crafted role+seniority
+  templates — gold pool is the classifier-derived
+  `(role_family_v1, seniority_label_v1)` slice on the enriched parquet.
+- 48 labeled queries (30 title + 18 role-seniority; 2 AS-templates
+  dropped — pool too small).
+
+Numbers (MiniLM 384-dim index, 12,334 jobs, 120k chunks):
+
+| Variant | recall@5 | recall@10 | recall@20 | MRR | nDCG@10 | latency |
+|---|---|---|---|---|---|---|
+| `dense` | 0.291 | 0.363 | 0.393 | 0.412 | 0.349 | 186 ms/q |
+| `hybrid+rerank` | **0.421** | **0.486** | **0.511** | **0.518** | **0.476** | 700 ms/q |
+
+Cross-encoder rerank (lite ms-marco MiniLM-L-6-v2) → +34% recall@10 for
+~4x latency. The "hybrid" variant is identical to dense for v1 because
+the MiniLM index has no sparse leg; bge-m3 reindex (v1.1) gives RRF
+fusion something to fuse. CSVs + summary.json/md in
+`eval/retrieval_results/`.
+
+What's *not* done (Phase 6 follow-ups, logged Open):
+- HyDE (`rag/hyde.py`): Qwen2.5-7B hypothetical-doc generation before
+  retrieval, UI toggle.
+- ColBERT (`rag/colbert.py`): MaxSim late-interaction reranking against
+  `jobs_multivec`. Both wait on the bge-m3 reindex (multi-vec is in
+  bge-m3's forward pass; MiniLM doesn't produce it).
 
 ### 2026-05-08 — Phase 5: hybrid RAG retrieval stack live
 

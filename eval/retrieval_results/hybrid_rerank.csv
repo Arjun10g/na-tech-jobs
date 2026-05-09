@@ -1,0 +1,49 @@
+query_id,query,n_relevant,n_retrieved,recall_at_5,recall_at_10,recall_at_20,mrr,ndcg_at_10
+title-000,Fraud Agent,2,15,1.0000,1.0000,1.0000,1.0000,1.0000
+title-001,"Staff Robotics Software Engineer, Maritime",3,19,0.6667,1.0000,1.0000,0.2500,0.5508
+title-002,Electrical Harness Design Engineer,2,11,1.0000,1.0000,1.0000,1.0000,0.9197
+title-003,"Territory Account Executive, South Central",2,20,1.0000,1.0000,1.0000,1.0000,1.0000
+title-004,"Customer Experience Agent, 2026 New Grad",2,16,1.0000,1.0000,1.0000,1.0000,1.0000
+title-005,"Senior Manager, Industrial Capacity",2,19,0.0000,0.0000,0.0000,0.0000,0.0000
+title-006,Sr. RFIC Design Engineer,4,14,1.0000,1.0000,1.0000,1.0000,1.0000
+title-007,"Software Engineer, C++",6,18,0.6667,1.0000,1.0000,1.0000,0.9442
+title-008,Law Enforcement Engagement Lead - EMEA,2,14,1.0000,1.0000,1.0000,1.0000,1.0000
+title-009,Senior Software Engineer - Database Engine Internals,3,20,0.3333,0.3333,0.3333,1.0000,0.4693
+title-010,Enterprise Account Executive,3,20,0.0000,0.0000,0.0000,0.0000,0.0000
+title-011,"Account Executive, Growth",4,20,0.5000,0.5000,0.5000,0.5000,0.4415
+title-012,Sr. Data Platform Engineer - Computer System Validator,2,17,1.0000,1.0000,1.0000,1.0000,1.0000
+title-013,Senior Software Engineer,32,20,0.1562,0.1875,0.1875,1.0000,0.7152
+title-014,Application Security Engineer,8,17,0.2500,0.3750,0.3750,1.0000,0.4887
+title-015,"Build Specialist, Automation & Controls",2,16,1.0000,1.0000,1.0000,1.0000,1.0000
+title-016,Quality Systems Engineer,2,17,1.0000,1.0000,1.0000,1.0000,1.0000
+title-017,"Mechanical Engineer, Maneuver Dominance",2,19,1.0000,1.0000,1.0000,1.0000,1.0000
+title-018,"Senior Analyst, UM Regulatory Operations",3,16,1.0000,1.0000,1.0000,1.0000,1.0000
+title-019,Senior Staff Software Engineer - IAM,2,20,1.0000,1.0000,1.0000,1.0000,1.0000
+title-020,"Software Engineer, Full Stack",4,19,0.0000,0.0000,0.0000,0.0000,0.0000
+title-021,Senior Security Operations Analyst,6,13,0.8333,1.0000,1.0000,1.0000,1.0000
+title-022,IT Systems & A/V Engineer,2,17,1.0000,1.0000,1.0000,1.0000,1.0000
+title-023,"Director, Business Development, Advanced Effects",6,14,0.6667,1.0000,1.0000,0.5000,0.7983
+title-024,"Senior Manager, Mid Market Sales",2,17,0.5000,1.0000,1.0000,0.2000,0.4556
+title-025,Strategic Finance Manager,3,16,0.3333,0.6667,1.0000,1.0000,0.6173
+title-026,Senior Security Engineer,5,20,0.0000,0.8000,0.8000,0.1667,0.4430
+title-027,"Field Test Engineer, Maritime",5,17,0.2000,0.2000,1.0000,1.0000,0.3392
+title-028,Sr. Construction Superintendent,3,17,1.0000,1.0000,1.0000,1.0000,1.0000
+title-029,"Senior Systems Engineering, Integration and Test (SEIT) Engineer",2,16,1.0000,1.0000,1.0000,1.0000,1.0000
+role-000,Senior machine learning engineer building production recommender systems,100,19,0.0000,0.0000,0.0100,0.0667,0.0000
+role-001,Staff ML engineer working on large-scale model training infrastructure,100,18,0.0000,0.0000,0.0000,0.0000,0.0000
+role-002,Principal data scientist leading experimentation and causal inference work,16,17,0.0000,0.1250,0.1250,0.1429,0.1396
+role-003,Senior data scientist with strong SQL and A/B testing experience,100,19,0.0100,0.0300,0.0400,0.5000,0.2687
+role-004,Staff data engineer designing modern data lakehouse with dbt and Snowflake,100,18,0.0000,0.0000,0.0000,0.0000,0.0000
+role-005,Senior data engineer building Spark / Airflow pipelines at scale,100,18,0.0000,0.0000,0.0000,0.0000,0.0000
+role-006,Research scientist focused on LLM alignment and AI safety,100,17,0.0000,0.0000,0.0000,0.0000,0.0000
+role-008,Staff software engineer on ML systems and inference infrastructure,100,20,0.0000,0.0000,0.0000,0.0000,0.0000
+role-009,Director of data science leading cross-functional analytics teams,54,20,0.0000,0.0000,0.0000,0.0000,0.0000
+role-010,Senior MLE in Toronto building NLP products,18,20,0.0556,0.0556,0.0556,0.2500,0.0948
+role-011,Staff data engineer remote-friendly in Canada with cloud expertise,33,17,0.0303,0.0606,0.0606,0.2000,0.1635
+role-012,Senior research engineer at a frontier AI lab,100,19,0.0000,0.0000,0.0000,0.0000,0.0000
+role-014,Senior data analyst with dashboarding and BI experience,100,18,0.0000,0.0000,0.0000,0.0000,0.0000
+role-015,Junior data engineer eager to learn modern data stack,100,20,0.0000,0.0000,0.0000,0.0000,0.0000
+role-016,"Manager of machine learning engineering, leading team of MLEs",100,17,0.0000,0.0000,0.0000,0.0000,0.0000
+role-017,Staff machine learning engineer for generative AI / LLM applications,100,19,0.0000,0.0000,0.0000,0.0000,0.0000
+role-018,Senior data scientist in fintech building risk and fraud models,100,15,0.0000,0.0000,0.0200,0.0833,0.0000
+role-019,Senior software engineer working on training infrastructure for LLMs,100,20,0.0000,0.0000,0.0000,0.0000,0.0000

@@ -41,8 +41,9 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 2 — Features + curated + salary regressor | ✅ | Regex cascade (49.8% disclosure mined) + LLM Tier 2 dormant + curated DuckDB layer + 6-tier ladder. **Tier 5 XGBoost test-MAE $29,091 / CV-MAE $30,533** |
 | 3 — First deployable | ✅ | Salary prediction + curated search live on the Space |
 | 4 — Multi-model + payload enrichment | ✅ | Frozen-MiniLM + LR seniority (val f1_macro 0.812 reviewed-gold) and role-family (0.934) classifiers, regex skills layer, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
-| **5 — Retrieval stack** | ✅ **NEW** | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
-| 6-9 — Eval, LLM, drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
+| 5 — Retrieval stack | ✅ | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
+| **6a — Eval harness** | ✅ **NEW** | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
+| 7-9 — LLM, drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
 ---
 
@@ -173,6 +174,26 @@ uv run python -m scripts.index_jobs --lite --force-recreate
 # production (bge-m3 dense + sparse, ~6-8 hr on MPS)
 uv run python -m scripts.index_jobs --force-recreate
 ```
+
+### Retrieval eval — multi-variant comparison
+
+Eval set: **48 labeled queries** (30 title-as-query with `(normalized
+title, country)`-pool gold; 18 hand-crafted role+seniority queries with
+classifier-label-pool gold). Run on the live MiniLM index over 12,334
+jobs / 120k child chunks.
+
+| Variant | recall@5 | recall@10 | recall@20 | MRR | nDCG@10 | latency |
+|---|---|---|---|---|---|---|
+| `dense` | 0.291 | 0.363 | 0.393 | 0.412 | 0.349 | 186 ms/q |
+| `hybrid+rerank` | **0.421** | **0.486** | **0.511** | **0.518** | **0.476** | 700 ms/q |
+
+Cross-encoder rerank (`cross-encoder/ms-marco-MiniLM-L-6-v2` lite) lifts
+recall@10 by **+34%** for ~4x the latency. The bge-m3 reindex (v1.1)
+adds the sparse leg + ColBERT MaxSim reranking, both of which CLAUDE.md
+§8 expects to push recall further. HyDE (Qwen2.5-7B hypothetical-doc
+generation before retrieval) lands as a UI toggle in Phase 6 follow-up.
+
+Reproduce: `uv run python -m eval.run_retrieval_eval --variants dense hybrid+rerank`.
 
 ---
 
