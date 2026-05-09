@@ -98,24 +98,42 @@ benchmark DeBERTa-v3 + LoRA against this baseline once a hand-labeled
 **Honest framing.** Training labels come from the regex extractors in
 `ingestion/normalize.py`; rows where the regex fell back to its default
 (`"mid"` for seniority, `"Other"` and `"Manager"` for role_family) are
-dropped from training. Eval metrics measure agreement with the regex on
-a held-out 10% slice — they don't measure agreement with hand-labeled
-gold. CLAUDE.md §7 logs the hand-labeled test set as the v1.1 task.
+dropped from training. The held-out F1 above measures agreement with the
+regex on a held-out 10% slice. To check the classifier didn't just
+memorize the regex, we also report agreement with an **independent Claude
+labeler** on a 230-row stratified sample per classifier
+([eval/preliminary/](eval/preliminary/)):
 
-**Skill extractor** (`arjun10g/na-tech-jobs-skills-v1`) is a NuExtract-tiny
-zero-shot wrapper + ~70-name canonical taxonomy. Available for ad-hoc use;
-batch application to the curated table is deferred to v1.1 (~6 hours on
-MPS, ~30 min on an A10G HF Job).
+| Classifier | vs regex (held-out) | vs Claude (in-vocab) | vs Claude (high-conf) |
+|---|---|---|---|
+| seniority | 0.831 | 0.797 (n=117) | **0.899** (n=96) |
+| role_family | 0.915 | 0.900 (n=93) | **0.925** (n=65) |
+
+The "in-vocab" filter excludes the ~49% of sampled rows where Claude's
+label was `"mid"` / `"Other"` / `"Manager"` — labels we drop from training.
+The classifier is a *specialist over the explicit labels*, not a
+general-purpose 9-way classifier; production callers should use
+confidence thresholds + the regex's default-label flag to decide when to
+trust the prediction. Hand-reviewed gold metrics are the v1.1 task — the
+460 LLM proposals are the seed (`scripts.label_classifier --review`).
+
+**Skill extractor** is **regex-first** by default — `extracted_skills_v1`
+is populated from the existing `ingestion/feature_extraction/regex/tech_stack.py`
+column on every weekly ingest (free, deterministic, ~ms, 64.7% coverage
+across the 12,334 active jobs). The NuExtract LLM tier
+(`arjun10g/na-tech-jobs-skills-v1`) stays opt-in via
+`--skills-mode=nuextract` and runs during monthly retrains on an A10G
+(CLAUDE.md §10's cadence; logged in MAINTENANCE.md).
 
 **Curated enrichment.** `curated_enriched/jobs.parquet` on the HF
 Dataset has all 12,334 active jobs scored with versioned columns
 `seniority_label_v1`, `seniority_confidence_v1`, `role_family_v1`,
 `role_family_confidence_v1`, `predicted_salary_usd_v1`,
-`prediction_model_version`, plus `extracted_skills_v1` (empty list in
-v1; populated in v1.1). Re-running is a single command:
+`prediction_model_version`, plus `extracted_skills_v1` (regex-populated,
+64.7% coverage). Re-running is a single command:
 
 ```sh
-uv run python -m curated.enrich --skip-skills --push-to-hub
+uv run python -m curated.enrich --push-to-hub
 ```
 
 ---

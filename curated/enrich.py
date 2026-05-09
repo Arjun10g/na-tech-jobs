@@ -97,7 +97,44 @@ def _score_role_family(df: pd.DataFrame, batch_size: int = 64) -> tuple[list[str
     return labels, confidences
 
 
-def _score_skills(df: pd.DataFrame, batch_size: int = 8) -> list[list[str]]:
+def _score_skills_regex(df: pd.DataFrame) -> list[list[str]]:
+    """Copy skills from the existing ``tech_stack`` regex column.
+
+    Per CLAUDE.md the v1 skills layer is regex-first: the
+    ``ingestion/feature_extraction/regex/tech_stack.py`` extractor already
+    populates `tech_stack` with canonical skill names on every weekly
+    ingest (free, deterministic, ~ms for thousands of rows). NuExtract
+    becomes an enhancement layer that runs monthly during the Phase 8
+    retrain cron, only on the long tail of rows where regex was sparse.
+    """
+    if "tech_stack" not in df.columns:
+        logger.warning("tech_stack column missing — returning empty skill lists")
+        return [[] for _ in range(len(df))]
+
+    def _normalize(val) -> list[str]:
+        if val is None:
+            return []
+        # numpy arrays / lists / tuples all cast cleanly
+        try:
+            return [str(s) for s in val if s is not None and str(s).strip()]
+        except TypeError:
+            return []
+
+    out = [_normalize(v) for v in df["tech_stack"].tolist()]
+    n_filled = sum(1 for s in out if s)
+    logger.info(
+        "skills (regex) :: %d/%d rows have ≥1 skill (%.1f%%)",
+        n_filled,
+        len(out),
+        100 * n_filled / max(len(out), 1),
+    )
+    return out
+
+
+def _score_skills_nuextract(df: pd.DataFrame, batch_size: int = 8) -> list[list[str]]:
+    """Run the NuExtract LLM tier — slow on MPS, only used when explicitly
+    opted in via ``--nuextract``. Reserved for monthly retrain runs (or HF
+    Jobs A10G) per CLAUDE.md §10."""
     from models.skills.predict import SkillExtractor
 
     extractor = SkillExtractor()
@@ -170,8 +207,23 @@ def enrich(
     curated_path: Path = Path("data/curated/jobs.parquet"),
     output_dir: Path = Path("data/curated_enriched"),
     *,
-    skip_skills: bool = False,
+    skills_mode: str = "regex",
 ) -> dict[str, Any]:
+    """Score salary + seniority + role_family + skills into versioned columns.
+
+    ``skills_mode`` controls how ``extracted_skills_v1`` is populated:
+
+    - ``"regex"`` (default, free, automatable): copy from the existing
+      ``tech_stack`` regex column. Runs in ms, suitable for the weekly
+      ingest pipeline.
+    - ``"nuextract"``: run NuExtract over every row. ~1.7 s/row on Apple
+      MPS (~6 hours for 12k rows). Reserved for monthly retrains or HF
+      Jobs A10G runs per CLAUDE.md §10.
+    - ``"skip"``: write empty lists. Mostly for tests.
+    """
+    if skills_mode not in {"regex", "nuextract", "skip"}:
+        raise ValueError(f"invalid skills_mode: {skills_mode!r}")
+
     started = datetime.now(timezone.utc)
     df = _load_curated(curated_path)
 
@@ -193,11 +245,14 @@ def enrich(
     df[f"role_family_{PHASE_4_VERSION}"] = role_labels
     df[f"role_family_confidence_{PHASE_4_VERSION}"] = role_conf
 
-    if skip_skills:
+    if skills_mode == "skip":
         df[f"extracted_skills_{PHASE_4_VERSION}"] = [[] for _ in range(len(df))]
-    else:
-        logger.info("extracting skills (NuExtract) …")
-        df[f"extracted_skills_{PHASE_4_VERSION}"] = _score_skills(df)
+    elif skills_mode == "nuextract":
+        logger.info("extracting skills (NuExtract LLM tier) …")
+        df[f"extracted_skills_{PHASE_4_VERSION}"] = _score_skills_nuextract(df)
+    else:  # "regex" — default
+        logger.info("extracting skills (regex tech_stack) …")
+        df[f"extracted_skills_{PHASE_4_VERSION}"] = _score_skills_regex(df)
 
     df["prediction_model_version"] = PHASE_4_VERSION
 
@@ -268,7 +323,16 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--curated-path", default="data/curated/jobs.parquet")
     p.add_argument("--output-dir", default="data/curated_enriched")
-    p.add_argument("--skip-skills", action="store_true")
+    p.add_argument(
+        "--skills-mode",
+        choices=("regex", "nuextract", "skip"),
+        default="regex",
+        help=(
+            "regex (default, free, automatable): copy from tech_stack column. "
+            "nuextract: run the LLM tier (~6h on MPS — for monthly retrain or A10G). "
+            "skip: write empty lists."
+        ),
+    )
     p.add_argument("--push-to-hub", action="store_true")
     p.add_argument("--log-level", default="INFO")
     return p.parse_args()
@@ -283,7 +347,7 @@ def main() -> int:
     stats = enrich(
         curated_path=Path(args.curated_path),
         output_dir=Path(args.output_dir),
-        skip_skills=args.skip_skills,
+        skills_mode=args.skills_mode,
     )
     print("\n=== enrichment summary ===")
     print(json.dumps(stats, indent=2, default=str))

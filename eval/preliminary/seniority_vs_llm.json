@@ -1,0 +1,81 @@
+{
+  "classifier": "seniority",
+  "n_proposals_total": 230,
+  "n_in_vocab": 117,
+  "n_out_of_vocab": 113,
+  "out_of_vocab_labels": {
+    "mid": 112,
+    "exec": 1
+  },
+  "vs_llm": {
+    "accuracy": 0.7949,
+    "f1_macro": 0.7975,
+    "f1_weighted": 0.7922,
+    "f1_macro_ci95": [
+      0.7233,
+      0.8612
+    ]
+  },
+  "vs_llm_high_confidence": {
+    "n": 96,
+    "accuracy": 0.9062,
+    "f1_macro": 0.8995
+  },
+  "classification_report": {
+    "director": {
+      "precision": 0.7,
+      "recall": 0.875,
+      "f1-score": 0.7777777777777778,
+      "support": 16.0
+    },
+    "intern": {
+      "precision": 1.0,
+      "recall": 0.9375,
+      "f1-score": 0.967741935483871,
+      "support": 16.0
+    },
+    "junior": {
+      "precision": 0.8,
+      "recall": 0.5714285714285714,
+      "f1-score": 0.6666666666666666,
+      "support": 21.0
+    },
+    "manager": {
+      "precision": 0.5384615384615384,
+      "recall": 0.875,
+      "f1-score": 0.6666666666666666,
+      "support": 8.0
+    },
+    "principal": {
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1-score": 0.967741935483871,
+      "support": 15.0
+    },
+    "senior": {
+      "precision": 0.85,
+      "recall": 0.6296296296296297,
+      "f1-score": 0.723404255319149,
+      "support": 27.0
+    },
+    "staff": {
+      "precision": 0.7222222222222222,
+      "recall": 0.9285714285714286,
+      "f1-score": 0.8125,
+      "support": 14.0
+    },
+    "accuracy": 0.7948717948717948,
+    "macro avg": {
+      "precision": 0.7925976800976801,
+      "recall": 0.8310185185185185,
+      "f1-score": 0.7974998910568575,
+      "support": 117.0
+    },
+    "weighted avg": {
+      "precision": 0.8156521659726789,
+      "recall": 0.7948717948717948,
+      "f1-score": 0.7921768604392718,
+      "support": 117.0
+    }
+  }
+}

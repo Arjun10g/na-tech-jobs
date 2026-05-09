@@ -82,21 +82,39 @@ Conventions:
   Phase 4 pivoted to frozen sentence-transformer + logistic regression after
   literature review (Peters et al 2019, SetFit). v1 ships the LR classifiers;
   a v2 fine-tune comparison on a hand-labeled clean test set is logged below.
-  - Target: **v1.1** — once we have the 500-example hand-labeled test set
-    (CLAUDE.md §7), re-evaluate whether DeBERTa-v3 + LoRA delivers a real
+  - Target: **v1.1** — once the human-reviewed gold test set lands (see next
+    item), re-evaluate whether DeBERTa-v3 + LoRA delivers a real
     improvement over the linear probe. If not, the locked decision in §7
     should be amended in CLAUDE.md.
   - Status: `open`.
 
-- **Skill extraction not yet batch-applied to the curated table.** NuExtract
-  on Apple MPS is ~1.7 sec/row → ~6 hours for 12,334 rows. The wrapper +
-  taxonomy ship in v1 (`models/skills/predict.py`, repo
-  `arjun10g/na-tech-jobs-skills-v1`); `extracted_skills_v1` in
-  `curated_enriched/jobs.parquet` is `[]` for every row.
-  - Target: **v1.1** — run NuExtract over the curated table on an HF Jobs
-    A10G GPU (~30 min, ~$0.50). Re-push enriched parquet with populated
-    `extracted_skills_v1`.
+- **Hand-reviewed gold test set (CLAUDE.md §7's "500 hand-labeled examples").**
+  v1 ships an LLM-proposed test set: 230 stratified rows per classifier,
+  labeled by 10 parallel Claude agents and saved as
+  `data/eval_proposals/<classifier>/labels_*.jsonl`. This is the
+  *starting point* for human review, not a gold set. Preliminary
+  classifier-vs-LLM agreement: seniority f1_macro 0.797 (high-conf 0.899);
+  role_family f1_macro 0.900 (high-conf 0.925). See `eval/preliminary/`.
+  - Target: **v1.1** — run `uv run python -m scripts.label_classifier
+    seniority --review` and the same for `role_family`. UX: each row
+    shows the LLM proposal with a default ENTER-to-accept; 30-60 min of
+    focused work to review all 460 proposals. Output goes to
+    `eval/<classifier>_test.jsonl` with `source: human-override` or
+    `llm-accepted`. Then re-run `scripts.eval_classifiers_against_proposals`
+    pointing at the reviewed file for the gold metrics.
   - Status: `open`.
+
+- **Skill extraction wired to regex `tech_stack` for v1; NuExtract is opt-in.**
+  `curated/enrich.py` now defaults to `--skills-mode=regex`, which copies
+  from the existing `tech_stack` regex column populated during weekly ingest
+  (free, deterministic, ~ms for 12k rows, fully automatable in CI). Result:
+  `extracted_skills_v1` has 64.7% coverage in v1 (7,984 / 12,334 rows ≥1
+  skill). NuExtract is still the LLM tier: opt-in via `--skills-mode=nuextract`,
+  intended for monthly retrain runs (CLAUDE.md §10) and HF Jobs A10G batches.
+  - Target: **Phase 8** — wire NuExtract into the monthly retrain workflow on
+    an A10G HF Job (~30 min, ~$0.50/month). Until then weekly ingests carry
+    regex-only skills, which is sufficient for the RAG payload + filter UX.
+  - Status: `open` (deferred to Phase 8 monthly cadence; not blocking).
 
 - **Hardcoded FX rate (1 CAD = 0.73 USD).** Frozen in `ingestion/normalize.py`.
   Acceptable for v1 — salary modelling works on USD-yearly normalized values
@@ -132,6 +150,30 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 4-followup: regex skills + LLM-proposed eval set
+
+Two operational follow-ups to Phase 4's skills/eval gaps, both motivated
+by "this needs to be free + automatable; we run weekly":
+
+- **Skills wired to the regex `tech_stack` column** as the v1 default
+  (`--skills-mode=regex`, free, ~ms). Coverage jumped from 0% → 64.7%
+  on the curated parquet (7,984/12,334 rows ≥1 skill). NuExtract stays
+  available as `--skills-mode=nuextract` for monthly retrain / HF Jobs.
+  Re-pushed enriched parquet to dataset commit `01fa6e9b`.
+- **LLM-proposed eval set** (230 rows × 2 classifiers = 460 proposals):
+  10 Claude agents ran in parallel via `Agent` tool, each labeling one
+  shard of `data/eval_proposals/<classifier>/shard_*.jsonl`. Outputs in
+  `data/eval_proposals/<classifier>/labels_*.jsonl`. Pre-review
+  classifier-vs-LLM agreement: seniority f1_macro 0.797 (0.899
+  high-conf), role_family 0.900 (0.925 high-conf). Both model cards
+  updated with the new "Independent-labeler eval" section. Human review
+  flow added: `scripts.label_classifier --review` shows each LLM
+  proposal with ENTER-to-accept / type-to-override.
+
+The hand-reviewed gold set is still v1.1 (logged Open above) — but
+the heavy lift (sampling + initial labeling) is done; the user just
+runs `--review` when they have 30-60 min.
 
 ### 2026-05-08 — Phase 4: title classifiers + skill extractor + curated enrichment
 

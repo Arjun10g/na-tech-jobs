@@ -203,7 +203,7 @@ older predictions remain readable when models retrain (CLAUDE.md §6).
 | `role_family_v1` | string | `arjun10g/na-tech-jobs-role_family-v1` | One of `AS / DA / DE / DS / MLE / RS / SWE-ML`. Trained on regex-confident labels (`"Other"` and `"Manager"` dropped); val f1_macro 0.915. |
 | `role_family_confidence_v1` | float | same | softmax-max from the LR head |
 | `predicted_salary_usd_v1` | float | `arjun10g/na-tech-jobs-salary-v1` | XGBoost prediction, USD/year. Predicts on every row including non-disclosing ones — see Phase 2 model card for the bias framing. |
-| `extracted_skills_v1` | list[string] | `arjun10g/na-tech-jobs-skills-v1` | NuExtract zero-shot skills, normalized to the project taxonomy. **Empty list in v1** — batch enrichment deferred to v1.1 (NuExtract on MPS is 6 hours for 12k rows). |
+| `extracted_skills_v1` | list[string] | regex `tech_stack` (default) / `arjun10g/na-tech-jobs-skills-v1` (opt-in) | Default `--skills-mode=regex` copies from the existing `tech_stack` regex column (free, ~ms, 64.7% coverage). NuExtract LLM tier opt-in via `--skills-mode=nuextract` (~6 h on MPS, runs monthly during Phase 8 retrains on A10G). |
 | `prediction_model_version` | string | — | Currently `"v1"`. Bumps when any of the four models retrains. |
 
 ---

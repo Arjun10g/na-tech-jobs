@@ -33,6 +33,39 @@ def _model_card(name: str, summary: dict) -> str:
     best_c = cv.get("best_C", "n/a")
     cv_f1 = cv.get("best_f1_macro", "n/a")
     pretty_name = name.replace("_", " ")
+
+    # Preliminary independent-labeler eval (LLM-proposed, pre-human-review).
+    prelim_path = Path(f"eval/preliminary/{name}_vs_llm.json")
+    prelim_block = ""
+    if prelim_path.exists():
+        prelim = json.loads(prelim_path.read_text())
+        vs_llm = prelim["vs_llm"]
+        hc = prelim["vs_llm_high_confidence"]
+        prelim_block = f"""
+
+## Independent-labeler eval (preliminary, pre-human-review)
+
+To check the classifier didn't just memorize the regex, we sampled 230
+diverse rows and had Claude (an independent labeler) propose labels in
+parallel. The classifier was scored against those proposals on the
+subset of rows where Claude's label is one the classifier was trained
+to predict (`{prelim["n_in_vocab"]}/{prelim["n_proposals_total"]}` rows
+— the rest were the regex-default labels we drop from training,
+mostly `{list(prelim["out_of_vocab_labels"].keys())[0] if prelim["out_of_vocab_labels"] else "n/a"}`).
+
+| Metric | All in-vocab proposals | LLM high-confidence subset |
+|---|---|---|
+| n | {prelim["n_in_vocab"]} | {hc["n"]} |
+| accuracy | {vs_llm["accuracy"]} | {hc["accuracy"]} |
+| f1_macro | **{vs_llm["f1_macro"]}** (95% CI [{vs_llm["f1_macro_ci95"][0]}, {vs_llm["f1_macro_ci95"][1]}]) | **{hc["f1_macro"]}** |
+
+These numbers come from a *different labeler* than the training data, so
+they're a stronger signal of generalization than the regex-agreement
+metric above. Caveats: Claude's labels are themselves not gold, and the
+in-vocab filter excludes the regex-default rows. A hand-reviewed gold set
+is the v1.1 task — the LLM-proposed labels are the starting point for that
+review (`scripts/label_classifier --review`)."""
+
     return f"""\
 ---
 license: mit
@@ -150,6 +183,8 @@ from models.{name}.predict import {("Seniority" if name == "seniority" else "Rol
 clf = {("Seniority" if name == "seniority" else "RoleFamily")}Classifier.load_from_hub()
 clf.predict(["Senior ML Engineer at Stripe"])
 ```
+
+{prelim_block}
 
 ## Citation
 
