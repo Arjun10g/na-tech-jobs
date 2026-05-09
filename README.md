@@ -40,8 +40,8 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 1 — Ingestion v1 | ✅ | 65 ATS handles → weekly parquet → HF Dataset, ~12.3k jobs |
 | 2 — Features + curated + salary regressor | ✅ | Regex cascade (49.8% disclosure mined) + LLM Tier 2 dormant + curated DuckDB layer + 6-tier ladder. **Tier 5 XGBoost test-MAE $29,091 / CV-MAE $30,533** |
 | 3 — First deployable | ✅ | Salary prediction + curated search live on the Space |
-| **4 — Multi-model + payload enrichment** | ✅ **NEW** | Frozen-MiniLM + LR seniority (val f1_macro 0.831) and role-family (0.915) classifiers, NuExtract skills wrapper, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
-| 5 — Retrieval stack | future | bge-m3 hybrid + ColBERT, Qdrant, resume matcher |
+| 4 — Multi-model + payload enrichment | ✅ | Frozen-MiniLM + LR seniority (val f1_macro 0.812 reviewed-gold) and role-family (0.934) classifiers, regex skills layer, all 12,334 jobs enriched with versioned predictions on the HF Dataset |
+| **5 — Retrieval stack** | ✅ **NEW** | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
 | 6-9 — Eval, LLM, drift, polish | future | per [CLAUDE.md §10](CLAUDE.md) |
 
 ---
@@ -139,6 +139,39 @@ Dataset has all 12,334 active jobs scored with versioned columns
 
 ```sh
 uv run python -m curated.enrich --push-to-hub
+```
+
+---
+
+## Hybrid retrieval — Phase 5 matcher
+
+Phase 5 ships a parent-child chunked Qdrant index over the curated job
+corpus and a Matcher tab that does natural-language → ranked-jobs
+retrieval.
+
+| | Detail |
+|---|---|
+| Chunking | parent-child `RecursiveCharacterTextSplitter` (~1024-token parents, ~256-token / 32-overlap children, hierarchical markdown separators) |
+| Volume indexed | **12,334 jobs → 29,311 parents → 120,004 children** |
+| Embedder (v1) | `sentence-transformers/all-MiniLM-L6-v2` (384-dim, dense-only). bge-m3 (1024-dim dense + sparse + ColBERT multivec) wired but reindex deferred to v1.1 — ~8 hr on Apple MPS or ~1 hr on an A10G HF Job. |
+| Vector store | Qdrant **local mode** at `data/qdrant/` (matches Spaces-Pro persistent-disk layout). Two collections: `jobs_dense` (named dense + sparse vectors, HNSW + int8 scalar quantization on dense) and `jobs_multivec` (ColBERT MaxSim, populated by v1.1). |
+| Pipeline | dense first-pass (top 100) → optional sparse search → RRF fusion (k=60) → optional cross-encoder rerank (`bge-reranker-v2-m3` or lite ms-marco MiniLM) → parent-chunk hydration → top-K. Filters on country, seniority_label_v1, role_family_v1, predicted_salary_usd_v1 range, posted_at. |
+| Index time | 14:05 wall-clock for the full MiniLM index on Apple MPS (142 chunks/sec). |
+| Latency | <1 s end-to-end on the matcher tab without the cross-encoder reranker; ~3-5 s with rerank enabled. |
+
+The Matcher tab lives next to Salary Prediction and Search on the
+Gradio Space — paste a query or resume blurb, apply filters, get
+ranked jobs with predicted salary, classifier-derived seniority + role
+family, top skills, and a snippet from the contributing parent chunk.
+
+To re-index locally:
+
+```sh
+# dev / fast iteration (MiniLM, ~14 min for 120k chunks)
+uv run python -m scripts.index_jobs --lite --force-recreate
+
+# production (bge-m3 dense + sparse, ~6-8 hr on MPS)
+uv run python -m scripts.index_jobs --force-recreate
 ```
 
 ---

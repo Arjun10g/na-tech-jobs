@@ -266,13 +266,14 @@ def search_dense(
     qdrant_filter: Any | None = None,
 ):
     """Cosine search over the named ``dense`` vector."""
-    return client.search(
+    return client.query_points(
         collection_name=collection_name,
-        query_vector=("dense", query_dense.tolist()),
+        query=query_dense.tolist(),
+        using="dense",
         limit=limit,
         with_payload=True,
         query_filter=qdrant_filter,
-    )
+    ).points
 
 
 def search_sparse(
@@ -284,18 +285,14 @@ def search_sparse(
     qdrant_filter: Any | None = None,
 ):
     """BM25-style search over the ``sparse`` vector."""
-    from qdrant_client import models
-
-    return client.search(
+    return client.query_points(
         collection_name=collection_name,
-        query_vector=models.NamedSparseVector(
-            name="sparse",
-            vector=sparse_to_qdrant(query_sparse),
-        ),
+        query=sparse_to_qdrant(query_sparse),
+        using="sparse",
         limit=limit,
         with_payload=True,
         query_filter=qdrant_filter,
-    )
+    ).points
 
 
 def collection_info(

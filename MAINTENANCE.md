@@ -126,6 +126,39 @@ Conventions:
     metadata so older parquets remain reproducible.
   - Status: `open`.
 
+### Phase 5 / RAG follow-ups
+
+- **bge-m3 reindex.** Phase 5 v1 indexed with MiniLM (384-dim dense only)
+  to ship the matcher today. CLAUDE.md §5+§8 calls for bge-m3 (1024-dim
+  dense + sparse for hybrid lexical search + ColBERT multi-vec for
+  late-interaction rerank). Estimated ~6-8 hr on Apple MPS or ~30 min on
+  an HF Jobs A10G. Once re-indexed, the Matcher tab gains hybrid sparse
+  search and the optional ColBERT rerank toggle (currently dormant).
+  - Target: **v1.1** — run `uv run python -m scripts.index_jobs --multivec`
+    locally overnight, or wire an HF Jobs invocation script.
+  - Status: `open`.
+
+- **Resume PDF parsing in the Matcher tab.** Matcher v1 accepts text
+  only; CLAUDE.md §8 calls for `pypdf` parsing + an LLM-based skill
+  extraction step (`app/resume_parser.py`). The text path validates the
+  retrieval pipeline end-to-end; PDF parsing is straightforward to bolt
+  on once the matcher is otherwise stable.
+  - Target: **v1.1** — implement `app/resume_parser.py` with pypdf +
+    NuExtract or Claude-based skill extraction; gate the matcher input
+    box behind a "Text or PDF" radio.
+  - Status: `open`.
+
+- **Qdrant local-mode warning at >20k points.** qdrant-client emits a
+  `UserWarning: Local mode is not recommended for collections with more
+  than 20,000 points` once we exceed that threshold (we have 120k). Local
+  mode works but isn't optimized; production should run Qdrant in Docker
+  on the Spaces container. CLAUDE.md §5 keeps local-mode for v1
+  simplicity.
+  - Target: **Phase 8** — switch to a sidecar Docker container or Qdrant
+    Cloud free tier when drift / always-on serving uncovers latency
+    issues.
+  - Status: `open` (acceptable for v1; flag to monitor).
+
 ### CI / ops
 
 - **No drift detection yet.** CLAUDE.md §10 schedules this for Phase 8. The
@@ -151,6 +184,60 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 5: hybrid RAG retrieval stack live
+
+What landed:
+- **Chunking** (`rag/chunking.py`): parent-child `RecursiveCharacterTextSplitter`
+  with markdown-aware hierarchical separators. Title prepended to body so
+  title-only queries match. Payload pre-filtered to a stable
+  `PAYLOAD_FIELDS` set including the Phase 4 versioned predictions; numpy
+  arrays + pandas Timestamps + NaN floats coerced to JSON-native via
+  `_coerce`.
+- **Embedder** (`rag/embedder.py`): dual-backend.
+  - `_BGEM3Embedder`: production path, dense (1024) + sparse + optional
+    ColBERT multivec from one forward pass via `FlagEmbedding.BGEM3FlagModel`.
+  - `_LiteEmbedder`: MiniLM dense-only fast path for dev iteration.
+- **Qdrant client** (`rag/qdrant_client.py`): local-mode at `data/qdrant/`
+  matching the Spaces persistent-disk layout. Two collections:
+  `jobs_dense` (named dense + sparse vectors, HNSW + int8 scalar
+  quantization) and `jobs_multivec` (ColBERT MaxSim, deferred). Stable
+  UUID5 from chunk_id makes re-indexing idempotent. `query_points` API
+  (the older `search` API was removed in qdrant-client 1.10+).
+- **Indexer** (`scripts/index_jobs.py`): chunk → embed → upsert.
+  `--lite` swaps bge-m3 for MiniLM. Auto-prefers
+  `data/curated_enriched/jobs.parquet` (Phase 4 versioned predictions)
+  over the bare curated parquet. Progress logging every 30 s with rate +
+  ETA.
+- **Reranker** (`rag/reranker.py`): cross-encoder wrapper.
+  `BAAI/bge-reranker-v2-m3` (production) or `cross-encoder/ms-marco-MiniLM-L-6-v2`
+  (lite).
+- **Pipeline** (`rag/pipeline.py`): `HybridRetriever` orchestrates
+  query → dense search → optional sparse search → RRF fusion (k=60) →
+  optional rerank → parent-chunk hydration → top-K. Tolerant of missing
+  data: falls back to dense-only if sparse not in index, skips rerank
+  if reranker not loaded, falls back to child text if parent lookup
+  unavailable. `build_filter()` translates UI inputs → Qdrant Filter
+  on country / seniority_label_v1 / role_family_v1 / salary range /
+  posted_at.
+- **App** (`app/retriever_loader.py`, `app/tabs/matcher.py`,
+  `app/main.py`): lazy singleton retriever (env-driven backend
+  selection: `RAG_EMBEDDER`, `RAG_RERANKER`), Matcher tab with text
+  query + filters + top-K slider + four example queries. Status banner
+  bumped to Phase 5.
+
+Volume + perf:
+- Indexed **12,334 jobs → 29,311 parents → 120,004 children** with
+  MiniLM in 14:05 wall-clock on Apple MPS (142 chunks/sec).
+- Matcher latency <1 s without rerank; ~3-5 s with the lite cross-encoder.
+- 61 new tests in `tests/rag/` (chunking, embedder w/ mocked FlagEmbedding,
+  Qdrant client, reranker, pipeline). Full suite: 263 passing.
+
+Three follow-ups logged Open above:
+- bge-m3 reindex (v1.1, ~6-8 hr MPS / ~30 min A10G).
+- Resume PDF parsing (matcher v1 takes text only; PDF in v1.1).
+- ColBERT multivec collection populated from bge-m3 + late-interaction
+  rerank toggle in UI (Phase 6 per CLAUDE.md §10).
 
 ### 2026-05-08 — Phase 4-followup: regex skills + two-pass Claude-reviewed eval set
 

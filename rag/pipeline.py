@@ -152,29 +152,29 @@ class HybridRetriever:
         from rag.qdrant_client import COLLECTION_DENSE
 
         out = self.embedder.encode([query], batch_size=1)
-        return self.qdrant_client.search(
+        resp = self.qdrant_client.query_points(
             collection_name=COLLECTION_DENSE,
-            query_vector=("dense", out.dense[0].tolist()),
-            limit=limit,
-            with_payload=True,
-            query_filter=qdrant_filter,
-        ), out
-
-    def _search_sparse(self, sparse_query: dict[int, float], *, limit: int, qdrant_filter):
-        from qdrant_client import models
-
-        from rag.qdrant_client import COLLECTION_DENSE, sparse_to_qdrant
-
-        return self.qdrant_client.search(
-            collection_name=COLLECTION_DENSE,
-            query_vector=models.NamedSparseVector(
-                name="sparse",
-                vector=sparse_to_qdrant(sparse_query),
-            ),
+            query=out.dense[0].tolist(),
+            using="dense",
             limit=limit,
             with_payload=True,
             query_filter=qdrant_filter,
         )
+        return resp.points, out
+
+    def _search_sparse(self, sparse_query: dict[int, float], *, limit: int, qdrant_filter):
+
+        from rag.qdrant_client import COLLECTION_DENSE, sparse_to_qdrant
+
+        resp = self.qdrant_client.query_points(
+            collection_name=COLLECTION_DENSE,
+            query=sparse_to_qdrant(sparse_query),
+            using="sparse",
+            limit=limit,
+            with_payload=True,
+            query_filter=qdrant_filter,
+        )
+        return resp.points
 
     def first_pass(
         self,

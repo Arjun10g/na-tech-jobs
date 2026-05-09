@@ -228,9 +228,15 @@ class _FakeHit:
     payload: dict
 
 
+def _fake_query_response(points):
+    resp = MagicMock()
+    resp.points = points
+    return resp
+
+
 def test_search_end_to_end_dense_only_path():
     qclient = MagicMock()
-    qclient.search.return_value = [
+    points = [
         _FakeHit(
             id="00000000-0000-0000-0000-000000000001",
             score=0.9,
@@ -254,6 +260,7 @@ def test_search_end_to_end_dense_only_path():
             },
         ),
     ]
+    qclient.query_points.return_value = _fake_query_response(points)
 
     embedder = MagicMock()
     embedder.encode.return_value = EmbeddingBatch(
