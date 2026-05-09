@@ -34,37 +34,62 @@ def _model_card(name: str, summary: dict) -> str:
     cv_f1 = cv.get("best_f1_macro", "n/a")
     pretty_name = name.replace("_", " ")
 
-    # Preliminary independent-labeler eval (LLM-proposed, pre-human-review).
+    # Independent-labeler eval. Prefer the reviewed (gold) set if it exists;
+    # else fall back to the raw LLM proposals.
+    reviewed_path = Path(f"eval/preliminary/{name}_vs_reviewed.json")
     prelim_path = Path(f"eval/preliminary/{name}_vs_llm.json")
     prelim_block = ""
-    if prelim_path.exists():
-        prelim = json.loads(prelim_path.read_text())
+    eval_source_path = reviewed_path if reviewed_path.exists() else prelim_path
+    eval_source_label = "reviewed" if reviewed_path.exists() else "preliminary"
+    if eval_source_path.exists():
+        prelim = json.loads(eval_source_path.read_text())
         vs_llm = prelim["vs_llm"]
         hc = prelim["vs_llm_high_confidence"]
+        n_total = prelim["n_proposals_total"]
+        n_in = prelim["n_in_vocab"]
+        oov = prelim.get("out_of_vocab_labels", {})
+        oov_top = list(oov.keys())[0] if oov else "n/a"
+        if eval_source_label == "reviewed":
+            heading = "Independent-labeler eval (reviewed gold)"
+            preamble = f"""To check the classifier didn't just memorize the regex, we sampled 230
+diverse rows per classifier and ran a two-pass Claude labeling protocol:
+**5 first-pass labelers in parallel** (each labeling one shard with
+strict taxonomy rules), then **5 second-pass reviewers in parallel**
+(each shown the first-pass proposal + the trained classifier's
+prediction, with `default-to-accept` plus override criteria for
+title-vs-label contradictions). 8/460 rows were overridden by the
+reviewers; 1 was skipped as genuinely ambiguous. The resulting test set
+lives at `eval/{name}_test.jsonl` with full provenance per row.
+
+The classifier is scored on the subset of rows whose final label is one
+it was trained to predict (`{n_in}/{n_total}` rows — the rest are the
+regex-default labels we drop from training, mostly `{oov_top}`)."""
+        else:
+            heading = "Independent-labeler eval (preliminary, pre-human-review)"
+            preamble = f"""To check the classifier didn't just memorize the regex, we sampled 230
+diverse rows and had Claude (an independent labeler) propose labels in
+parallel. Scored on the subset where Claude's label is one the
+classifier was trained to predict (`{n_in}/{n_total}` rows — the rest
+are the regex-default labels we drop from training, mostly `{oov_top}`)."""
+
         prelim_block = f"""
 
-## Independent-labeler eval (preliminary, pre-human-review)
+## {heading}
 
-To check the classifier didn't just memorize the regex, we sampled 230
-diverse rows and had Claude (an independent labeler) propose labels in
-parallel. The classifier was scored against those proposals on the
-subset of rows where Claude's label is one the classifier was trained
-to predict (`{prelim["n_in_vocab"]}/{prelim["n_proposals_total"]}` rows
-— the rest were the regex-default labels we drop from training,
-mostly `{list(prelim["out_of_vocab_labels"].keys())[0] if prelim["out_of_vocab_labels"] else "n/a"}`).
+{preamble}
 
-| Metric | All in-vocab proposals | LLM high-confidence subset |
+| Metric | All in-vocab | LLM high-confidence subset |
 |---|---|---|
-| n | {prelim["n_in_vocab"]} | {hc["n"]} |
+| n | {n_in} | {hc["n"]} |
 | accuracy | {vs_llm["accuracy"]} | {hc["accuracy"]} |
 | f1_macro | **{vs_llm["f1_macro"]}** (95% CI [{vs_llm["f1_macro_ci95"][0]}, {vs_llm["f1_macro_ci95"][1]}]) | **{hc["f1_macro"]}** |
 
-These numbers come from a *different labeler* than the training data, so
+These numbers come from a different labeler than the training data, so
 they're a stronger signal of generalization than the regex-agreement
-metric above. Caveats: Claude's labels are themselves not gold, and the
-in-vocab filter excludes the regex-default rows. A hand-reviewed gold set
-is the v1.1 task — the LLM-proposed labels are the starting point for that
-review (`scripts/label_classifier --review`)."""
+metric above. Caveats: Claude's labels (even after review) are not human
+gold; the in-vocab filter excludes the regex-default rows; the
+classifier is a specialist over the explicit labels, not a 9-way
+general-purpose classifier."""
 
     return f"""\
 ---

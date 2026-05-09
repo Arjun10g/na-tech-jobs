@@ -1,0 +1,229 @@
+{"id": "f9f60e68fe89a864", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "Product Manager = Other"}
+{"id": "769576dd3c2c3ae1", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": "Product Designer = Other"}
+{"id": "e2786226e3a89d5a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "SRE/ops analyst, not data role"}
+{"id": "f4fc8cbc6bbe6d4f", "label": "RS", "source": "claude-reviewed:overridden", "llm_proposal": "DE", "classifier_prediction": "RS", "notes": "Research Engineer on Economic Research team; supports research mission, title-driven RS"}
+{"id": "0cc716af35bb75f9", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Information Security Risk Analyst, not data analytics"}
+{"id": "0dd4484456324dda", "label": "RS", "source": "claude-reviewed:overridden", "llm_proposal": "DE", "classifier_prediction": "RS", "notes": "Research Engineer at Mistral building training data infra for research"}
+{"id": "cdba240e2c7767c4", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "SRE = general infra, not ML"}
+{"id": "f8bece1b33f17d25", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": "Research Engineer in Safeguards Labs"}
+{"id": "c91a2f846400b697", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "169bac478446669a", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "2e5b7842801793e2", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "SWE-ML", "notes": "Engineering Manager"}
+{"id": "78a467a50fa28d92", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Sales"}
+{"id": "b74238885d0027f4", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Sales"}
+{"id": "9438ab0fcdbdf3df", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "64359943ed70feb6", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "DE", "notes": "Director of Engineering"}
+{"id": "e61d6fa36366e7b9", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "1af2f723aef60dd7", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "15bfb5cc52890cb9", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Sales"}
+{"id": "ae272d9fa9f636b0", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "RS", "notes": "Director BD, leadership"}
+{"id": "528b48634f0f0a96", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "fafa6ecbfc899cb1", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "DA", "notes": "Sales leader managing AEs"}
+{"id": "e7ed6624aa6509f4", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": "Analytics Engineer building data + AI systems"}
+{"id": "40038ddb10a5f91e", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "SWE-ML", "notes": "AI FDE productionizes GenAI for customers"}
+{"id": "f37c5e0ff19a94ea", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "d45cd28f70429b6e", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "0d936e9a21190c1c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "CNC machinist"}
+{"id": "9634eb76c5bc194b", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "9fa1859caa341d4f", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": "Inference deployment infra = SWE-ML"}
+{"id": "9e65f1efa32ef30e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Sales BDR"}
+{"id": "ab600f9c90f6a4db", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "General full-stack SWE"}
+{"id": "1a7726b65133cd7a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": "Threat research = security, not ML research"}
+{"id": "a39081229173c4d4", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": "Sales"}
+{"id": "dd67cb2ce2b71217", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Salesforce engineer"}
+{"id": "d803e97166dc8ced", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "General fullstack SWE"}
+{"id": "02ee2f2379dd0dbd", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Sales"}
+{"id": "7ff4d1247aef0142", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "1626a463a9828f2d", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": "Analytics Engineer"}
+{"id": "a2278cd819674d03", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Strategic Finance"}
+{"id": "0acdb9b5c79dbcc2", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Communications/PR"}
+{"id": "9ef4c747e94a0685", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "e89fca8a0bab227e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "Chief of Staff sales ops"}
+{"id": "a634bd6345053747", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": "Analytics Engineer"}
+{"id": "fc89a069f2dbde56", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": "Workforce planning analyst"}
+{"id": "6caa5304f2802f6b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": "C++ simulation SWE, not ML"}
+{"id": "7ad87fe45cecd22d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Flight systems SWE"}
+{"id": "21f99f42ca6f0e62", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "eb82e3dbbfbc1e14", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": "Marketing channel lead"}
+{"id": "556c446192364277", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "b2c17fb92fa60c35", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Payments SWE"}
+{"id": "c82f44674f446a99", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "bd32980787cdca7b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Stream/Flink infra SWE, not data engineering pipelines for analytics"}
+{"id": "0f4045ae84f09b90", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "SRE, not ML systems"}
+{"id": "9858dac50bfe10ce", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Corporate Finance role"}
+{"id": "26d3534f7c78774c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Hardware reliability engineer"}
+{"id": "3761b08c2934e246", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Sales development rep"}
+{"id": "f4c54b77c169a87d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Customer-facing technical advisor / forward-deployed, not core ML systems"}
+{"id": "252cfd0e396f56ff", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": "Counterintelligence analyst, not data role"}
+{"id": "be5943b6ee900014", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "MLE", "notes": "GPU training platform / ML infra"}
+{"id": "2072dea34b0de286", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Product Design intern"}
+{"id": "1d8f33329de6662c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "8d9e6db4c4b5d695", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "d1c1e801a7ca6d40", "label": "AS", "source": "claude-reviewed:accepted", "llm_proposal": "AS", "classifier_prediction": "DS", "notes": "Title is Applied Scientist II"}
+{"id": "6155b184d22f244b", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": "ML platform engineer"}
+{"id": "f382b5a37014e008", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Accountant"}
+{"id": "fddfe3f9688555a5", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Account Executive"}
+{"id": "2699b1eb8b38fee2", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "69a3b552b2e4f51a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Performance SWE"}
+{"id": "0671ae40f5e7fc44", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Firmware engineer"}
+{"id": "267f2982dd3a319e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Software Test Engineer"}
+{"id": "a5b8951818bf16c5", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "iOS SWE new grad, not ML systems"}
+{"id": "c0627a3d103fbd24", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Recruiter"}
+{"id": "6bbcd126b1aab308", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DS", "notes": "Title says DS but role is data analytics partnering with Finance"}
+{"id": "5c79ac3aa68a5f4d", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "d5805fd1f9de6493", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Account Executive"}
+{"id": "f6b777207d04d4dd", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "440c0c910df76140", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "5c6351c181f7d029", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "1033b7356a4a929b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "Benefits consultant"}
+{"id": "724b56a1c2b9662a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Account Executive"}
+{"id": "90036c6d7ccd82c3", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "Distinguished SWE consumer apps, not ML"}
+{"id": "b2adccd8e7baf97e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Procurement buyer"}
+{"id": "9ebc2387540f2425", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Customer Support Specialist"}
+{"id": "c7eaa5d5b95a7be7", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "MLE", "notes": "Sales Development Manager - people mgmt primary, but in sales not data. Manager taxonomy is broader; LLM proposal kept."}
+{"id": "045495ad1fcab895", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "SRE"}
+{"id": "4f96a9eb9871fba0", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": "Analytics Engineer with dbt/BigQuery"}
+{"id": "558a3573770b79e5", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Account Executive"}
+{"id": "d4c056e54aba8b11", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "0970fde46c93aa78", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "634fbc2a15a2d9de", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": "IT Support Engineer"}
+{"id": "2ee98d7668906193", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Account Executive"}
+{"id": "b5a3e32f266b2e47", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Electrical Design Engineer"}
+{"id": "c5b47d2835000e55", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "4ea7cba6e5b8d309", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": "Avionics Systems Engineer"}
+{"id": "df7290a6de51abcd", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "19a95ec78090c06b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": "Delivery Solutions Architect (customer-facing)"}
+{"id": "1e38e839a9a71077", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Forward Deployed Engineering, customer-facing AppMod"}
+{"id": "3a7b65d54e90d562", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "fc3f6578a487b530", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "RS", "notes": "Analytics Engineer / dbt-style"}
+{"id": "8fff319bf3528601", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": "Flight Test Engineer"}
+{"id": "c9b05e23237665f9", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "36031b2d6ac7caaa", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "d9071ec429ada85d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "d0a1e20f29ffad2f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "54fa139a61e4cbfc", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "1d2db0f82333214b", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "af73fe5ffb47cf27", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "3dfb175c10a04480", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "20f6c5f2b18e62c1", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "c177afe9850441b1", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "5a1bd1973d11283f", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "a8c0ebe3af34b959", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "5fa6f40c930c8cd1", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "162f1634dcb6923f", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "997e390f4d85501c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "a4a6594651044ddd", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "218f6c5832414135", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "b6cdd707458f9b15", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "ba1402e900c8960d", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "RS", "notes": ""}
+{"id": "36a536b7c5876cfe", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "ceca91548b7df0a4", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "DE", "notes": ""}
+{"id": "8461266ee9264ce8", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": "Sales role, not people mgmt despite title"}
+{"id": "afa47cccf8b42313", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "e3e558208c8eb9a5", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "92481a7f2353d202", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "fe794bfc23ba2ecd", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Partner/alliance sales mgmt, not people mgmt"}
+{"id": "4e6a6bf9c30a4ef4", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": "Strategy & Ops role, not data/ML"}
+{"id": "9fd82b6f8f54b18d", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "901cd42fc9375e9d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "4c2e49d69cb4c64e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "8dfb23c68b5b0f73", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "b423db106c7c2751", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "bd2104411db11b0d", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "9b750c1bc0703197", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "21e8e003704a5a09", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "a90acacf7634874a", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "5a29a83bdf09664f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "07a5915a2dad0f35", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "a99b1d0867d9a85b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "01614c8dc45fbb1c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "3abe3b773f433bd5", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "73e9bcac6f0f42a1", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "5cfb73708aefe7f7", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "3728788f22e9b895", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "825257dac88b0083", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "0ad616e04fc64b7f", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "7ec401e87ae8c229", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "129759e41bdbb636", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "26d202f52a23ecc6", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "MLE", "notes": ""}
+{"id": "cdd09b61669809c7", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "30d071b7c6ece51a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "62a09d618e70a107", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "cacf92c967895c33", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "d33c11ffa57af678", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "cd7b8be15b5d2ee4", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "82efc2b918cbbc0d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": ""}
+{"id": "2aec5eb2b65ddd46", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "dbe8cd1c4729d236", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "af971279458166ad", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "894fd0b406321e1d", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "5f1a532e2549da70", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "741e78df11cc039e", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "408f688f129d0e38", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "8fd1c7b141fa1c5a", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "6b7b835de632bf4f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "09903c0c2d360a63", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "62529ca2e19c8dd2", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "cfe71b729d099d48", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "d6eb6ad905af3797", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "22b36d05fff63ee4", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "61e181176261ce4c", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "bb9953ae92cf39ec", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "56dd3bd9d516cf3f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "f2972cafebd2a0d0", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "dcac32e093361b67", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "ca92e93a8bb61730", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "313526476537e059", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "d2ca9fcce83ec197", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "c6647708f67a3e19", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "6f8187d6fc9d900b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "9138943518731474", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "d5362002dca23d83", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "c5ba6d66c2a5daaa", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "6531ed1df9fa24f9", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "DE", "notes": ""}
+{"id": "5ff8b1c5751eff2d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "1fee893c439ce70f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "2247006ac3085ceb", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "a6d4cc974f0cc3a7", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "eb41e5555d2659f3", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "b1a7ec803b876a5a", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "bf2f7d3f142414ce", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "7c7789f5ca7ea7a5", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "7f6d66b4aa106376", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "299a0acc12465790", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "19b7eb93ee0fd76e", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DS", "notes": ""}
+{"id": "7da9918cc9c76c2d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "5cb3368a8f866c05", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "663855c08c28d298", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "8c89e2122b086257", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "cd67d2519f945ede", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "34619b776809867d", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "RS", "notes": ""}
+{"id": "306c3687f815e5bc", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "bfb8f90be55ca69f", "label": "RS", "source": "claude-reviewed:accepted", "llm_proposal": "RS", "classifier_prediction": "RS", "notes": ""}
+{"id": "f28d3ee34723694c", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "17050a75d4578205", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "2d300745e8c43892", "label": "DE", "source": "claude-reviewed:accepted", "llm_proposal": "DE", "classifier_prediction": "DE", "notes": ""}
+{"id": "796ec08bc7639576", "label": "Manager", "source": "claude-reviewed:accepted", "llm_proposal": "Manager", "classifier_prediction": "DE", "notes": ""}
+{"id": "8194b396220e244d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "6b470b4ab9d20443", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "a1bbc64c128fd9bf", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "3fe0b96a87d125a4", "label": "DS", "source": "claude-reviewed:accepted", "llm_proposal": "DS", "classifier_prediction": "DS", "notes": ""}
+{"id": "97a5a929778efb8a", "label": "DA", "source": "claude-reviewed:accepted", "llm_proposal": "DA", "classifier_prediction": "DA", "notes": ""}
+{"id": "8026c0a62966351d", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "4a917d365407d0b9", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "433721d224c2bbad", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "95c22eb00861c270", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "57ff2d186f4b332f", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "3fc8d427fdc7478a", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "4e0b756f48665ac1", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "7d271c22215bd46e", "label": "SWE-ML", "source": "claude-reviewed:accepted", "llm_proposal": "SWE-ML", "classifier_prediction": "SWE-ML", "notes": ""}
+{"id": "e07e908cf4af2861", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "79d5cbd7227b4df3", "label": "Manager", "source": "claude-reviewed:overridden", "llm_proposal": "Other", "classifier_prediction": "SWE-ML", "notes": "Director of Product Management leading a team of PMs incl. managers of managers; mgmt is primary."}
+{"id": "01f50bc0c6d3815b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DE", "notes": ""}
+{"id": "8da73a519f8ccd7e", "label": "AS", "source": "claude-reviewed:accepted", "llm_proposal": "AS", "classifier_prediction": "RS", "notes": ""}
+{"id": "7674838f8d18982f", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "MLE", "notes": ""}
+{"id": "b2808afec8a8714b", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "3db9ff66e695cbaa", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}
+{"id": "7ec14fa768ca032c", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "RS", "notes": ""}
+{"id": "1d7ab53a0681c0fc", "label": "MLE", "source": "claude-reviewed:accepted", "llm_proposal": "MLE", "classifier_prediction": "MLE", "notes": ""}
+{"id": "4175d119a1e44334", "label": "Other", "source": "claude-reviewed:accepted", "llm_proposal": "Other", "classifier_prediction": "DA", "notes": ""}

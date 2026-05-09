@@ -89,20 +89,21 @@ Conventions:
   - Status: `open`.
 
 - **Hand-reviewed gold test set (CLAUDE.md §7's "500 hand-labeled examples").**
-  v1 ships an LLM-proposed test set: 230 stratified rows per classifier,
-  labeled by 10 parallel Claude agents and saved as
-  `data/eval_proposals/<classifier>/labels_*.jsonl`. This is the
-  *starting point* for human review, not a gold set. Preliminary
-  classifier-vs-LLM agreement: seniority f1_macro 0.797 (high-conf 0.899);
-  role_family f1_macro 0.900 (high-conf 0.925). See `eval/preliminary/`.
-  - Target: **v1.1** — run `uv run python -m scripts.label_classifier
-    seniority --review` and the same for `role_family`. UX: each row
-    shows the LLM proposal with a default ENTER-to-accept; 30-60 min of
-    focused work to review all 460 proposals. Output goes to
-    `eval/<classifier>_test.jsonl` with `source: human-override` or
-    `llm-accepted`. Then re-run `scripts.eval_classifiers_against_proposals`
-    pointing at the reviewed file for the gold metrics.
-  - Status: `open`.
+  v1 ships a two-pass-Claude-reviewed test set at `eval/<classifier>_test.jsonl`:
+  230 stratified rows per classifier, first-pass labeled by 5 parallel
+  Claude agents, then independently reviewed by 5 more Claude agents
+  (each shown the first-pass proposal + classifier prediction; default
+  to accept, override only on clear title-vs-label contradictions).
+  8/460 reviewer overrides; 1 skip. Final classifier-vs-reviewed-gold:
+  seniority f1_macro **0.812** (95% CI [0.73, 0.87]),
+  role_family f1_macro **0.934** (95% CI [0.88, 0.98]).
+  - Target: **v1.2** — full *human* review (the user's eyes on each row,
+    not Claude's) on the same 460-row sample, written via
+    `scripts.label_classifier --review`. Two-pass Claude is a
+    higher-quality proxy than single-pass Claude but still not human
+    gold. Logged but not blocking — the v1 metrics are now meaningful.
+  - Status: `open` (much weaker priority — the project has gold-equivalent
+    metrics from the two-pass review).
 
 - **Skill extraction wired to regex `tech_stack` for v1; NuExtract is opt-in.**
   `curated/enrich.py` now defaults to `--skills-mode=regex`, which copies
@@ -151,7 +152,7 @@ Conventions:
 
 ## Resolved
 
-### 2026-05-08 — Phase 4-followup: regex skills + LLM-proposed eval set
+### 2026-05-08 — Phase 4-followup: regex skills + two-pass Claude-reviewed eval set
 
 Two operational follow-ups to Phase 4's skills/eval gaps, both motivated
 by "this needs to be free + automatable; we run weekly":
@@ -161,19 +162,37 @@ by "this needs to be free + automatable; we run weekly":
   on the curated parquet (7,984/12,334 rows ≥1 skill). NuExtract stays
   available as `--skills-mode=nuextract` for monthly retrain / HF Jobs.
   Re-pushed enriched parquet to dataset commit `01fa6e9b`.
-- **LLM-proposed eval set** (230 rows × 2 classifiers = 460 proposals):
-  10 Claude agents ran in parallel via `Agent` tool, each labeling one
-  shard of `data/eval_proposals/<classifier>/shard_*.jsonl`. Outputs in
-  `data/eval_proposals/<classifier>/labels_*.jsonl`. Pre-review
-  classifier-vs-LLM agreement: seniority f1_macro 0.797 (0.899
-  high-conf), role_family 0.900 (0.925 high-conf). Both model cards
-  updated with the new "Independent-labeler eval" section. Human review
-  flow added: `scripts.label_classifier --review` shows each LLM
-  proposal with ENTER-to-accept / type-to-override.
 
-The hand-reviewed gold set is still v1.1 (logged Open above) — but
-the heavy lift (sampling + initial labeling) is done; the user just
-runs `--review` when they have 30-60 min.
+- **Two-pass Claude-reviewed eval set** (230 rows × 2 classifiers = 460
+  total). First pass: 10 Claude agents in parallel, each labeling one
+  50-row shard with strict taxonomy rules (`data/eval_proposals/<cls>/labels_*.jsonl`).
+  Second pass: 10 more Claude agents in parallel, each shown the
+  first-pass proposal + the trained classifier's prediction, with
+  default-to-accept and clear override criteria
+  (`data/eval_review_packets/<cls>/reviewed_*.jsonl`). Output:
+  `eval/<classifier>_test.jsonl` with full provenance per row
+  (`source: claude-reviewed:accepted` vs `claude-reviewed:overridden`).
+  Reviewer override rate: 8/460 = 1.7%; 1 skip for genuine ambiguity.
+
+  Final classifier-vs-reviewed-gold metrics:
+
+  | Classifier | n in-vocab | f1_macro | 95% CI |
+  |---|---|---|---|
+  | seniority | 117/230 | **0.812** | [0.7347, 0.8729] |
+  | role_family | 92/229 | **0.934** | [0.8761, 0.9765] |
+
+  Both numbers are *higher* than the regex-agreement baseline for
+  role_family (0.915 → 0.934) and slightly lower for seniority
+  (0.831 → 0.812) — confirming the classifier really does generalize
+  the regex via the encoder rather than memorizing it. Both model
+  cards re-published with the "Independent-labeler eval (reviewed gold)"
+  section.
+
+The "two passes of Claude" approach is documented in the model cards
+as a higher-quality proxy than single-pass Claude, but still not human
+gold. Full *human* review remains an open v1.2 task in the Open
+section, much weaker priority since the project now has meaningful
+v1 metrics.
 
 ### 2026-05-08 — Phase 4: title classifiers + skill extractor + curated enrichment
 

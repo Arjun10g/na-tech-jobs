@@ -1,0 +1,76 @@
+{
+  "classifier": "role_family",
+  "n_proposals_total": 229,
+  "n_in_vocab": 92,
+  "n_out_of_vocab": 137,
+  "out_of_vocab_labels": {
+    "Other": 124,
+    "Manager": 11,
+    "AS": 2
+  },
+  "vs_llm": {
+    "accuracy": 0.9348,
+    "f1_macro": 0.9337,
+    "f1_weighted": 0.935,
+    "f1_macro_ci95": [
+      0.8761,
+      0.9765
+    ]
+  },
+  "vs_llm_high_confidence": {
+    "n": 92,
+    "accuracy": 0.9348,
+    "f1_macro": 0.9337
+  },
+  "classification_report": {
+    "DA": {
+      "precision": 1.0,
+      "recall": 0.9375,
+      "f1-score": 0.967741935483871,
+      "support": 16.0
+    },
+    "DE": {
+      "precision": 1.0,
+      "recall": 0.9375,
+      "f1-score": 0.967741935483871,
+      "support": 16.0
+    },
+    "DS": {
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1-score": 0.967741935483871,
+      "support": 15.0
+    },
+    "MLE": {
+      "precision": 0.9444444444444444,
+      "recall": 0.8947368421052632,
+      "f1-score": 0.918918918918919,
+      "support": 19.0
+    },
+    "RS": {
+      "precision": 0.8571428571428571,
+      "recall": 1.0,
+      "f1-score": 0.9230769230769231,
+      "support": 12.0
+    },
+    "SWE-ML": {
+      "precision": 0.8571428571428571,
+      "recall": 0.8571428571428571,
+      "f1-score": 0.8571428571428571,
+      "support": 14.0
+    },
+    "accuracy": 0.9347826086956522,
+    "macro avg": {
+      "precision": 0.9327050264550264,
+      "recall": 0.93781328320802,
+      "f1-score": 0.9337274175983853,
+      "support": 92.0
+    },
+    "weighted avg": {
+      "precision": 0.9379636818495515,
+      "recall": 0.9347826086956522,
+      "f1-score": 0.9350027554796138,
+      "support": 92.0
+    }
+  }
+}

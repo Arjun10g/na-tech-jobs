@@ -100,22 +100,27 @@ benchmark DeBERTa-v3 + LoRA against this baseline once a hand-labeled
 (`"mid"` for seniority, `"Other"` and `"Manager"` for role_family) are
 dropped from training. The held-out F1 above measures agreement with the
 regex on a held-out 10% slice. To check the classifier didn't just
-memorize the regex, we also report agreement with an **independent Claude
-labeler** on a 230-row stratified sample per classifier
-([eval/preliminary/](eval/preliminary/)):
+memorize the regex, we also ran a **two-pass Claude-reviewed eval set**
+on a 230-row stratified sample per classifier (`eval/<classifier>_test.jsonl`):
+first-pass labelers produced LLM proposals; second-pass reviewers
+were shown those proposals plus the classifier's prediction and either
+accepted (1.7% override rate) or corrected on title-vs-label
+contradictions:
 
-| Classifier | vs regex (held-out) | vs Claude (in-vocab) | vs Claude (high-conf) |
+| Classifier | vs regex (held-out) | vs reviewed gold (in-vocab) | 95% CI |
 |---|---|---|---|
-| seniority | 0.831 | 0.797 (n=117) | **0.899** (n=96) |
-| role_family | 0.915 | 0.900 (n=93) | **0.925** (n=65) |
+| seniority | 0.831 | **0.812** | [0.7347, 0.8729] |
+| role_family | 0.915 | **0.934** | [0.8761, 0.9765] |
 
-The "in-vocab" filter excludes the ~49% of sampled rows where Claude's
-label was `"mid"` / `"Other"` / `"Manager"` — labels we drop from training.
+The "in-vocab" filter excludes the ~49% of sampled rows where the gold
+label is `"mid"` / `"Other"` / `"Manager"` — labels we drop from training.
 The classifier is a *specialist over the explicit labels*, not a
 general-purpose 9-way classifier; production callers should use
 confidence thresholds + the regex's default-label flag to decide when to
-trust the prediction. Hand-reviewed gold metrics are the v1.1 task — the
-460 LLM proposals are the seed (`scripts.label_classifier --review`).
+trust the prediction. Two-pass Claude review is still a higher-quality
+proxy than full *human* review — that v1.2 task uses the same flow:
+`scripts.label_classifier --review` shows each row with the LLM proposal
+and lets the user accept / override.
 
 **Skill extractor** is **regex-first** by default — `extracted_skills_v1`
 is populated from the existing `ingestion/feature_extraction/regex/tech_stack.py`

@@ -1,0 +1,45 @@
+[
+  {
+    "classifier": "seniority",
+    "n_rows": 230,
+    "n_skipped": 0,
+    "by_source": {
+      "accepted": 225,
+      "overridden": 5
+    },
+    "by_label": {
+      "director": 15,
+      "senior": 25,
+      "mid": 112,
+      "principal": 15,
+      "junior": 21,
+      "intern": 16,
+      "staff": 16,
+      "manager": 9,
+      "exec": 1
+    },
+    "out_path": "eval/seniority_test.jsonl"
+  },
+  {
+    "classifier": "role_family",
+    "n_rows": 229,
+    "n_skipped": 1,
+    "by_source": {
+      "accepted": 226,
+      "overridden": 3,
+      "skipped": 1
+    },
+    "by_label": {
+      "Other": 124,
+      "RS": 12,
+      "DA": 16,
+      "DS": 15,
+      "Manager": 11,
+      "MLE": 19,
+      "DE": 16,
+      "SWE-ML": 14,
+      "AS": 2
+    },
+    "out_path": "eval/role_family_test.jsonl"
+  }
+]

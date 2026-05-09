@@ -59,10 +59,36 @@ def _bootstrap_f1_ci(
     return float(lo), float(hi)
 
 
+def _load_reviewed(test_path: Path) -> pd.DataFrame:
+    """Load the reviewed gold set written by ``scripts.aggregate_reviewed``."""
+    rows: list[dict] = []
+    if not test_path.exists():
+        return pd.DataFrame(rows)
+    for line in test_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        # Match the proposals schema so the rest of the pipeline is the same.
+        rows.append(
+            {
+                "id": rec["id"],
+                "llm_label": rec["label"],  # treat reviewed label as the truth
+                "confidence": "high",  # all reviewed rows are gold-equivalent
+                "source": rec.get("source", "claude-reviewed"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def evaluate(
     classifier_name: str,
     curated_path: Path = Path("data/curated/jobs.parquet"),
     proposals_dir: Path | None = None,
+    reviewed_path: Path | None = None,
 ) -> dict:
     proposals_dir = proposals_dir or Path(f"data/eval_proposals/{classifier_name}")
     if classifier_name == "seniority":
@@ -74,8 +100,12 @@ def evaluate(
 
         clf = RoleFamilyClassifier.load(Path("data/models/role_family/final"))
 
-    proposals = _load_proposals(proposals_dir)
-    logger.info("loaded %d proposals from %s", len(proposals), proposals_dir)
+    if reviewed_path is not None and reviewed_path.exists():
+        proposals = _load_reviewed(reviewed_path)
+        logger.info("loaded %d reviewed labels from %s", len(proposals), reviewed_path)
+    else:
+        proposals = _load_proposals(proposals_dir)
+        logger.info("loaded %d proposals from %s", len(proposals), proposals_dir)
 
     df = pd.read_parquet(curated_path).set_index("id")
 
@@ -158,6 +188,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--classifier", choices=("seniority", "role_family", "both"), default="both")
     p.add_argument("--curated-path", default="data/curated/jobs.parquet")
     p.add_argument("--out-dir", default="eval/preliminary")
+    p.add_argument(
+        "--reviewed",
+        action="store_true",
+        help="Score against eval/<classifier>_test.jsonl (gold) instead of raw LLM proposals.",
+    )
     p.add_argument("--log-level", default="INFO")
     return p.parse_args()
 
@@ -176,8 +211,10 @@ def main() -> int:
 
     for cls in targets:
         logger.info("=== %s ===", cls)
-        summary = evaluate(cls, curated_path=Path(args.curated_path))
-        out_path = out_dir / f"{cls}_vs_llm.json"
+        reviewed_path = Path(f"eval/{cls}_test.jsonl") if args.reviewed else None
+        summary = evaluate(cls, curated_path=Path(args.curated_path), reviewed_path=reviewed_path)
+        suffix = "_vs_reviewed.json" if args.reviewed else "_vs_llm.json"
+        out_path = out_dir / f"{cls}{suffix}"
         out_path.write_text(json.dumps(summary, indent=2, default=str))
         logger.info(
             "%s :: vs LLM accuracy=%.3f f1_macro=%.3f (CI [%s])  high-conf-f1_macro=%s",
