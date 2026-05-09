@@ -1,15 +1,45 @@
+---
+license: mit
+task_categories:
+  - tabular-regression
+  - text-classification
+  - feature-extraction
+language:
+  - en
+tags:
+  - jobs
+  - hiring
+  - data-science
+  - machine-learning
+  - north-america
+  - salary
+size_categories:
+  - 10K<n<100K
+pretty_name: "North American Tech Jobs"
+configs:
+  - config_name: default
+    data_files:
+      - split: train
+        path: "curated/jobs.parquet"
+---
+
 # na-tech-jobs
 
 A production ML platform for the **North American senior tech-hiring market**.
 
-> Weekly ingestion across Greenhouse, Lever, Ashby (Workable, SmartRecruiters,
-> Workday in later phases) → versioned dataset on the Hugging Face Hub →
-> salary regressor + (Phase 4) seniority/role-family classifiers → (Phase 5)
-> hybrid + late-interaction RAG layer over a bge-m3 embedding index →
-> deployed on a $9 HF Pro Space, drift-monitored weekly, retrained monthly.
-
-> Built by a senior data science candidate using the platform for their own
-> North American job search.
+> I built a production ML platform for the North American senior tech-hiring
+> market. It runs weekly ATS ingestion across Greenhouse, Lever, Ashby
+> (Workable / SmartRecruiters / Workday tenants in later phases), producing a
+> versioned dataset on the Hugging Face Hub. On top of that, a salary
+> regressor (XGBoost on tabular features), seniority + role-family classifiers
+> (frozen MiniLM + multinomial LR), and a regex skills layer enrich every job
+> with versioned predictions. A hybrid + late-interaction RAG layer (Qdrant
+> dense+sparse, optional cross-encoder rerank, ColBERT MaxSim queued for v1.1)
+> powers a Matcher tab; an LLM-backed NL→SQL analytics layer with a mandatory
+> sqlglot safety gate powers an Analytics tab. Drift detection runs weekly,
+> retraining runs monthly with a champion/challenger promotion rule. The whole
+> thing deploys to a $9 HF Pro Space with always-on enabled. **I built it
+> because I needed it for my own senior DS job search.**
 
 ---
 
@@ -17,8 +47,82 @@ A production ML platform for the **North American senior tech-hiring market**.
 
 - **Demo (Space)**: https://arjun10g-na-tech-jobs.hf.space
 - **Source (GitHub)**: https://github.com/Arjun10g/na-tech-jobs
-- **Dataset**: https://huggingface.co/datasets/arjun10g/na-tech-jobs (12.3k rows × 49 cols, weekly)
-- **Salary model v1**: https://huggingface.co/arjun10g/na-tech-jobs-salary-v1
+- **Dataset**: https://huggingface.co/datasets/arjun10g/na-tech-jobs — 12,334 active jobs, weekly snapshots, all under MIT
+- **Models on HF Hub**:
+  - Salary regressor: [`arjun10g/na-tech-jobs-salary-v1`](https://huggingface.co/arjun10g/na-tech-jobs-salary-v1)
+  - Seniority classifier: [`arjun10g/na-tech-jobs-seniority-v1`](https://huggingface.co/arjun10g/na-tech-jobs-seniority-v1)
+  - Role-family classifier: [`arjun10g/na-tech-jobs-role_family-v1`](https://huggingface.co/arjun10g/na-tech-jobs-role_family-v1)
+  - Skills extractor: [`arjun10g/na-tech-jobs-skills-v1`](https://huggingface.co/arjun10g/na-tech-jobs-skills-v1)
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Ingest["⏱ Weekly — Sundays 02:00 UTC"]
+        A1[Greenhouse]
+        A2[Lever]
+        A3[Ashby]
+        A4[Workable]
+        A5[SmartRecruiters]
+        A6[Workday tenants]
+        A1 & A2 & A3 & A4 & A5 & A6 --> ORCH[orchestrator<br/>asyncio + httpx]
+        ORCH --> NORM[normalize.py<br/>title/loc/currency/period]
+        NORM --> DEDUP[dedup vs prior snapshot]
+        DEDUP --> QUAL[Pandera schema validation]
+        QUAL --> SNAP[(snapshots/&lt;date&gt;/jobs.parquet)]
+    end
+
+    SNAP --> CURATE[curated/build.py<br/>DuckDB]
+    CURATE --> CURATED[(curated/jobs.parquet<br/>12,334 active jobs)]
+
+    subgraph Features["📦 Phase 1b — feature extraction cascade"]
+        CURATED --> RGX[Tier 1 regex extractors<br/>seniority, role, skills,<br/>salary, sponsorship, ...]
+        RGX -. opt-in .-> NUE[Tier 2 NuExtract LLM<br/>monthly retrain only]
+    end
+
+    subgraph Models["🧠 Phase 2-4 — models"]
+        CURATED --> XGB[XGBoost salary regressor<br/>test-MAE $29,091]
+        CURATED --> SENMODEL[MiniLM + LR seniority<br/>val f1_macro 0.812]
+        CURATED --> ROLEMODEL[MiniLM + LR role_family<br/>val f1_macro 0.934]
+    end
+
+    XGB & SENMODEL & ROLEMODEL --> ENRICH[curated/enrich.py<br/>versioned predictions]
+    ENRICH --> ENRICHED[(curated_enriched/jobs.parquet<br/>seniority_label_v1, role_family_v1,<br/>predicted_salary_usd_v1, ...)]
+
+    subgraph RAG["🔍 Phase 5-6 — retrieval"]
+        ENRICHED --> CHUNK[parent-child chunking<br/>29k parents, 120k children]
+        CHUNK --> EMB[MiniLM dense<br/>bge-m3 v1.1 reindex]
+        EMB --> QDRANT[(Qdrant local-mode<br/>jobs_dense + jobs_multivec)]
+        QDRANT --> RAGPIPE[hybrid pipeline<br/>RRF + cross-encoder rerank<br/>recall@10 = 0.486]
+    end
+
+    subgraph App["🛰 HF Space — always-on"]
+        ENRICHED --> SALARYTAB[Salary tab]
+        ENRICHED --> SEARCHTAB[Search tab]
+        RAGPIPE --> MATCHERTAB[Matcher tab]
+        ENRICHED --> ANALYTICSTAB[Analytics tab<br/>NL→SQL + sqlglot safety]
+        ENRICHED --> DASHTAB[Dashboard tab<br/>drift + market trends]
+    end
+
+    subgraph Ops["🔁 Closed-loop ops"]
+        SNAP & ENRICHED --> DRIFT[Mon 03:00 UTC drift cron<br/>Evidently PSI]
+        DRIFT -. PSI ≥ 0.20 .-> RETRAIN
+        DRIFT --> ALERT[Discord webhook]
+        RETRAIN[1st @ 04:00 UTC monthly<br/>champion/challenger gate] --> XGB & SENMODEL & ROLEMODEL
+        RETRAIN --> ALERT
+    end
+
+    classDef artifact fill:#fef3c7,stroke:#d97706,color:#000
+    classDef live fill:#dbeafe,stroke:#2563eb,color:#000
+    classDef ops fill:#fee2e2,stroke:#dc2626,color:#000
+    class SNAP,CURATED,ENRICHED,QDRANT artifact
+    class SALARYTAB,SEARCHTAB,MATCHERTAB,ANALYTICSTAB,DASHTAB live
+    class DRIFT,RETRAIN,ALERT ops
+```
+
+The whole thing is one flywheel: ingest → curate → enrich with versioned
+predictions → index → serve → measure drift → retrain → re-enrich.
+Detailed architecture in [`CLAUDE.md`](CLAUDE.md) §4 + §8.
 
 ## Project documents
 
@@ -44,9 +148,9 @@ A production ML platform for the **North American senior tech-hiring market**.
 | 5 — Retrieval stack | ✅ | Parent-child chunking (29k parents, 120k children) + Qdrant local-mode + dense (MiniLM 384-dim) hybrid pipeline + cross-encoder rerank (optional) + Matcher tab live. bge-m3 reindex queued as v1.1 |
 | 6a — Retrieval eval harness | ✅ | 48 labeled retrieval queries + recall@k / MRR / nDCG@10 metrics. `hybrid+rerank` recall@10 = **0.486** (vs `dense` 0.363). HyDE + ColBERT toggles land after the bge-m3 reindex |
 | 7 — NL→SQL analytics | ✅ | Natural-language → DuckDB SQL with mandatory sqlglot safety layer (CLAUDE.md §11): allowlisted tables/columns, DDL/multi-statement reject, 1000-row + 5-s caps. Anthropic / HF Inference / mock LLM backends. Analytics tab live, executed SQL always shown. **61 dedicated safety tests.** |
-| **8a — Operational dashboard** | ✅ **NEW** | Evidently drift detection between two snapshots (PSI ≥ 0.20 → priority retrain), pipeline-health rollup (per-extractor success/fail), market-trend tabs (salary distribution by role × seniority, top companies, role-family share by country, top skills) all live in the new Dashboard tab. Live numbers: 12,334 active jobs, 49.8% disclosure, top company **Anduril (1,888 postings)**, Canada SWE-ML share 29.6% vs US 21.2%. |
-| **8b — CI workflows** | ✅ **NEW** | `.github/workflows/drift.yml` (Mondays 03:00 UTC, pulls 4-week-old reference + latest snapshot, runs Evidently, pushes report to dataset repo, alerts Discord on PSI breach) + `.github/workflows/retrain.yml` (monthly 1st @ 04:00 UTC, matrix over classifiers, champion/challenger gate via `monitoring.champion_challenger`, conditional publish if challenger passes) |
-| 9 — polish | future | per [CLAUDE.md §10](CLAUDE.md) |
+| 8a — Operational dashboard | ✅ | Evidently drift detection (PSI ≥ 0.20 → priority retrain), pipeline-health rollup, market-trend tabs (salary distribution by role × seniority, top companies, role-family share, top skills) live in the Dashboard tab. Live: 12,334 active jobs, 49.8% disclosure, top company Anduril (1,888 postings), CA is SWE-ML-heavy (29.6%) vs US's DE-heavy (29.9%). |
+| 8b — CI workflows | ✅ | `.github/workflows/drift.yml` (Mondays 03:00 UTC) + `.github/workflows/retrain.yml` (monthly 1st @ 04:00 UTC, matrix over classifiers, champion/challenger gate via `monitoring.champion_challenger`, conditional publish). |
+| **9 — polish** | ✅ **NEW** | Mermaid architecture diagram in README, HF dataset YAML frontmatter, elevator-pitch lead, model-card cross-links. **371 tests passing across 9 phases.** |
 
 ---
 

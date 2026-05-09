@@ -192,6 +192,16 @@ Conventions:
   publishes only if the gate passes. Salary regressor entry omitted
   from v1 matrix — see follow-up below.
 
+- **Phase 9 user-driven artifacts.** CLAUDE.md §10 Phase 9 calls for a
+  Loom walkthrough, a blog post, and demo screenshots/GIF — none of
+  which can be auto-generated. The Mermaid architecture diagram,
+  README rewrite, and HF dataset frontmatter (the assets that *can*
+  ship without a person) all landed in Phase 9; the rest is queued
+  for whenever the project owner records them.
+  - Target: **post-launch** — record after the first real recruiter
+    looks at the demo link.
+  - Status: `open` (waiting on owner).
+
 - **Salary regressor in monthly retrain matrix.** The 50-trial Optuna
   hyperparameter search clocks 4-6 hr on a free GitHub-Actions runner
   → currently outside the retrain.yml matrix. Options: (a) shrink to
@@ -235,6 +245,34 @@ Conventions:
 ---
 
 ## Resolved
+
+### 2026-05-08 — Phase 9: polish (architecture diagram + dataset frontmatter)
+
+What landed:
+- **Mermaid architecture diagram** at the top of README — full
+  flywheel from ATS extractors → orchestrator → curated + enriched
+  parquets → models → Qdrant index → Gradio app tabs → drift +
+  retrain crons. Renders natively on GitHub and the HF Dataset
+  repo (Mermaid is supported on both).
+- **HF Dataset YAML frontmatter** — adds `license`, `task_categories`,
+  `language`, `tags`, `size_categories`, `pretty_name`, and a
+  single-config pointer to `curated/jobs.parquet` so the dataset
+  card renders properly on the HF Hub. Resolves the warning that
+  surfaced during the first Phase 8a docs push.
+- **README lead rewritten** to the elevator pitch verbatim from
+  CLAUDE.md §15, plus the full set of HF Hub model links — salary,
+  seniority, role_family, skills.
+- **Dataset docs re-pushed** (`scripts/publish_dataset_docs.py`) →
+  commit `beacccaa` on the dataset repo. README + DATA_DICTIONARY
+  only — `CLAUDE.md` / `MAINTENANCE.md` / `LITERATURE_REVIEW.md`
+  remain GitHub-only.
+- **Phase status table** cleaned up — older "NEW" markers retired,
+  Phase 9 marked NEW. **371 tests still passing.**
+
+What's NOT in v1 (logged Open below; user-driven artifacts):
+- Loom walkthrough — needs a person.
+- Blog post — personal voice, can't be auto-generated.
+- Demo screenshots / GIF — need to actually run the Space and capture.
 
 ### 2026-05-08 — Phase 8b: CI workflows for drift + retrain
 
