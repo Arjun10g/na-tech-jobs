@@ -155,7 +155,7 @@ embedder + Qdrant index serve the matcher; the same enriched parquet
 backs analytics and the dashboard. Drift detection runs every Monday;
 the retrain cron runs on the 1st of each month with a champion/challenger
 gate. Everything's versioned through git and HF Hub commits. Detailed
-architecture in [`CLAUDE.md` §4 + §8](CLAUDE.md).
+architecture detailed in the source repo.
 
 ---
 
@@ -214,13 +214,13 @@ generalization sanity check.
 
 Each tier's 95% bootstrap CI sits cleanly above the previous tier's;
 test-MAE and CV-MAE agree to within 5%, so this isn't a lucky test
-draw or an overfit. The CLAUDE.md target of MAE under $25k isn't met
-yet — closing that gap is the bge-m3 description-embedding work in v1.1.
+draw or an overfit. The original target of MAE under $25k isn't met
+yet; closing that gap is the bge-m3 description-embedding work in v1.1.
 
-Methodology in [`LITERATURE_REVIEW.md` §16](LITERATURE_REVIEW.md):
-parsimonious-first ladder informed by Breiman's two-cultures essay,
-the Mincer earnings function, and the recent gradient-boosting-on-tabular
-results from Shwartz-Ziv & Armon (2022) and Grinsztajn et al (2022).
+Methodology is parsimonious-first, informed by Breiman's two-cultures
+essay, the Mincer earnings function, and the recent gradient-boosting-
+on-tabular results from Shwartz-Ziv & Armon (2022) and Grinsztajn et
+al (2022).
 
 ---
 
@@ -236,14 +236,14 @@ Architecture is frozen `sentence-transformers/all-MiniLM-L6-v2`
 head. Class weights balanced. C picked by 5-fold stratified CV from
 `{0.1, 1, 10}`.
 
-Why a linear probe and not CLAUDE.md §7's locked DeBERTa-v3 + LoRA?
+Why a linear probe and not the originally-planned DeBERTa-v3 + LoRA?
 For short-text classification on weakly-supervised labels, a linear
 probe over a strong general-purpose embedder lands at the same operating
 point for roughly two orders of magnitude less compute. The literature
-that motivated the call is in [`LITERATURE_REVIEW.md` §17](LITERATURE_REVIEW.md):
-Peters et al (2019) on when fine-tuning helps, Tunstall et al's SetFit,
-Joulin's FastText. v1.2 will run the DeBERTa-v3 comparison against the
-human-reviewed gold once that test set lands.
+that motivated the call is Peters et al (2019) on when fine-tuning
+helps, Tunstall et al's SetFit, and Joulin's FastText. v1.2 will run
+the DeBERTa-v3 comparison against human-reviewed gold once that test
+set lands.
 
 Training labels come from the regex extractors. Rows where the regex
 fell back to its default (`mid` / `Other` / `Manager`) are dropped from
@@ -252,7 +252,7 @@ measures held-out agreement against the same regex labels; "vs reviewed
 gold" comes from a two-pass Claude-reviewed sample (230 rows per
 classifier, first-pass labelers then second-pass reviewers shown the
 proposal + the classifier's prediction). The reviewer override rate
-was 1.7%. Process notes are in [`MAINTENANCE.md`](MAINTENANCE.md).
+was 1.7%.
 
 Skills are regex-first by default. `extracted_skills_v1` gets populated
 from [`ingestion/feature_extraction/regex/tech_stack.py`](ingestion/feature_extraction/regex/tech_stack.py)
@@ -385,15 +385,14 @@ latest snapshot directory.
 
 ---
 
-## Project documents
+## Data dictionary
 
-| File | What it contains |
-|---|---|
-| [`CLAUDE.md`](CLAUDE.md) | Project bible — architecture, locked decisions, phased plan, risks |
-| [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md) | Every column in `data/curated/jobs.parquet` — type, fill rate, predictor decision |
-| [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md) | ~1k-line predictor-by-predictor review with 50+ citations + ideal-EDA self-audit |
-| [`MAINTENANCE.md`](MAINTENANCE.md) | Running known-issues / debt log, resolved entries kept for project history |
-| [`eda/reports/<date>/report.md`](eda/) | Statistical audit + 11 plots per snapshot |
+Every column in `data/curated/jobs.parquet` (type, fill rate, whether
+it's a predictor) is documented in
+[`DATA_DICTIONARY.md`](DATA_DICTIONARY.md). The enriched parquet adds
+the seven versioned-prediction columns described in the
+[Title classifiers](#title-classifiers--frozen-minilm--multinomial-lr)
+section above.
 
 ---
 
@@ -459,7 +458,7 @@ scripts/              Publish models/dataset, build query sets, index_jobs, etc.
 tests/                371 tests across all surfaces
 ```
 
-Full structure in [`CLAUDE.md` §9](CLAUDE.md).
+Full structure on [GitHub](https://github.com/Arjun10g/na-tech-jobs).
 
 ## Secrets
 
