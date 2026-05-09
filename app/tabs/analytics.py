@@ -13,6 +13,7 @@ alongside the result so they can verify what the LLM actually ran.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import gradio as gr
 import pandas as pd
@@ -22,13 +23,23 @@ logger = logging.getLogger("app.tabs.analytics")
 
 def _resolve_curated_path():
     """Prefer the Phase 4 enriched parquet (versioned predictions) when
-    present; fall back to the bare curated parquet."""
-    from pathlib import Path
+    present locally; fall back to the bare curated parquet; finally
+    fall back to the HF Hub copy via ``app.model_loader.get_curated_path()``
+    so the live Space (which doesn't ship ``data/``) still works."""
+    for local in (
+        Path("data/curated_enriched/jobs.parquet"),
+        Path("data/curated/jobs.parquet"),
+    ):
+        if local.exists():
+            return local
+    # HF Hub fallback — downloads + caches once.
+    try:
+        from app.model_loader import get_curated_path
 
-    enriched = Path("data/curated_enriched/jobs.parquet")
-    if enriched.exists():
-        return enriched
-    return Path("data/curated/jobs.parquet")
+        return get_curated_path()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("HF Hub curated fallback failed :: %s", exc)
+        return Path("data/curated/jobs.parquet")
 
 
 def _run_nl2sql(question: str) -> tuple[str, str, pd.DataFrame]:
@@ -38,11 +49,15 @@ def _run_nl2sql(question: str) -> tuple[str, str, pd.DataFrame]:
 
     from rag.nl2sql import nl_to_sql, serialize_result  # noqa: F401
 
-    curated_path = _resolve_curated_path()
-    if not curated_path.exists():
+    try:
+        curated_path = _resolve_curated_path()
+    except Exception as exc:  # noqa: BLE001
+        return (f"❌ Could not resolve curated parquet: {exc}", "", pd.DataFrame())
+
+    if not Path(curated_path).exists():
         return (
-            f"❌ Curated parquet missing at `{curated_path}`. Run "
-            "`uv run python -m curated.enrich` first.",
+            f"❌ Curated parquet missing at `{curated_path}`. The HF Hub "
+            "fallback also failed — check `HF_TOKEN` is set on the Space.",
             "",
             pd.DataFrame(),
         )
