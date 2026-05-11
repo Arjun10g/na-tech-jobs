@@ -41,4 +41,4 @@ qdrant_storage/
 !eval/queries.jsonl
 
 # Claude (project settings committed; local overrides not)
-.claude/settings.local.json
+.claude/
