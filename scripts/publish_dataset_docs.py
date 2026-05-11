@@ -34,11 +34,10 @@ ALLOWED_DOCS: tuple[str, ...] = ("README.md", "DATA_DICTIONARY.md")
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--repo-id", default=DEFAULT_REPO)
+    p.add_argument("--root", default=".", help="Project root (defaults to current dir)")
     p.add_argument(
-        "--root", default=".", help="Project root (defaults to current dir)"
-    )
-    p.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="List what would be pushed without uploading",
     )
     p.add_argument("--log-level", default="INFO")
@@ -72,10 +71,7 @@ def main() -> int:
         raise RuntimeError("HF_TOKEN not set")
 
     api = HfApi(token=token)
-    operations = [
-        CommitOperationAdd(path_in_repo=p.name, path_or_fileobj=str(p))
-        for p in paths
-    ]
+    operations = [CommitOperationAdd(path_in_repo=p.name, path_or_fileobj=str(p)) for p in paths]
     commit = api.create_commit(
         repo_id=args.repo_id,
         repo_type="dataset",
