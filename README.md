@@ -133,7 +133,7 @@ flowchart TB
 
     subgraph Ops["🔁 Closed-loop ops"]
         SNAP & ENRICHED --> DRIFT[Mon 03:00 UTC drift cron<br/>Evidently PSI]
-        DRIFT -. PSI ≥ 0.20 .-> RETRAIN
+        DRIFT -.->|PSI >= 0.20| RETRAIN
         DRIFT --> ALERT[Discord webhook]
         RETRAIN[1st @ 04:00 UTC monthly<br/>champion/challenger gate] --> XGB & SENMODEL & ROLEMODEL
         RETRAIN --> ALERT
@@ -249,7 +249,7 @@ Training labels come from the regex extractors. Rows where the regex
 fell back to its default (`mid` / `Other` / `Manager`) are dropped from
 training because the fallback is too noisy. The "vs regex" column
 measures held-out agreement against the same regex labels; "vs reviewed
-gold" comes from a two-pass Claude-reviewed sample (230 rows per
+gold" comes from a two-pass LLM-reviewed sample (230 rows per
 classifier, first-pass labelers then second-pass reviewers shown the
 proposal + the classifier's prediction). The reviewer override rate
 was 1.7%.
@@ -342,7 +342,7 @@ Six things have to pass before the SQL is allowed to run:
 | **Row + time caps** | DuckDB `statement_timeout=5s` + outer `LIMIT 1000`. |
 | **Always-show SQL** | Executed SQL rendered alongside results so the user verifies what actually ran. |
 
-`default_llm()` picks a backend automatically: Anthropic Claude when
+`default_llm()` picks a backend automatically: hosted Anthropic when
 `ANTHROPIC_API_KEY` is set, HF Inference / Qwen2.5-7B-Instruct when only
 `HF_TOKEN` is, fail-loud otherwise. Tests use a `MockLLM` so CI never
 depends on a live API.
